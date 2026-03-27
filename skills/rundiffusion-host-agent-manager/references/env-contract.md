@@ -2,145 +2,90 @@
 
 ## Root Env
 
-Read [`../../.env.example`](../../.env.example) first. It defines the shared host contract for:
+Read [`../../.env.example`](../../.env.example) first. It defines the shared host contract. Read [`../../.env`](../../.env) second for actual values.
 
-- tenant storage paths
-- Traefik and Cloudflare routing
-- image build and deploy behavior
-- tenant resource limits
-- release and backup roots
+**Root env keys:**
 
-Read [`../../.env`](../../.env) second. It contains the actual values for this host.
+| Key | Purpose | Blank OK |
+| --- | --- | --- |
+| `COMPOSE_PROJECT_NAME` | Docker Compose project name | No |
+| `BASE_DOMAIN` | Base domain for tenant hostnames | No |
+| `INGRESS_MODE` | Routing mode: `local`, `direct`, `cloudflare` | No |
+| `PUBLIC_URL_SCHEME` | Browser origin scheme; blank = auto-detect | Yes |
+| `TRAEFIK_BIND_ADDRESS` | Interface Traefik listens on | No |
+| `TRAEFIK_HTTP_PORT` | Port Traefik listens on | No |
+| `TRAEFIK_NETWORK` | Docker network for Traefik | No |
+| `TRAEFIK_LOG_LEVEL` | Traefik log verbosity | Yes |
+| `CLOUDFLARE_HOSTNAME_MODE` | Cloudflare hostname strategy | Only for cloudflare mode |
+| `CLOUDFLARE_TUNNEL_ID` | Tunnel ID | Only for cloudflare mode |
+| `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE` | Path to tunnel credentials JSON | Only for cloudflare mode |
+| `CLOUDFLARE_TUNNEL_METRICS` | Metrics endpoint | Yes |
+| `CLOUDFLARED_LAUNCHD_LABEL` | macOS launchd label | Yes |
+| `DATA_ROOT` | Host path for tenant data volumes | No |
+| `TENANT_ENV_ROOT` | Host path for tenant env files | No |
+| `DEPLOY_MODE` | Deploy behavior mode | Yes |
+| `AUTO_ROLLBACK` | Auto-rollback on deploy failure | Yes |
+| `IMAGE_REPOSITORY` | Docker image repository | Yes |
+| `OPENCLAW_VERSION` | Default OpenClaw version for all tenants | Yes (derived) |
+| `GATEWAY_IMAGE_TAG` | Image tag override | Yes (derived) |
+| `TENANT_MEMORY_RESERVATION` | Container memory reservation | Yes |
+| `TENANT_MEMORY_LIMIT` | Container memory limit | Yes |
+| `TENANT_PIDS_LIMIT` | Container PID limit | Yes |
+| `TENANT_CONTAINER_SECURITY_PROFILE` | Container security profile | No |
+| `MAX_ALWAYS_ON_TENANTS` | Max always-on tenant count | Yes |
+| `BACKUP_ROOT` | Host path for backups | Yes (derived) |
+| `RELEASE_ROOT` | Host path for release history | Yes (derived) |
 
-The current root env keys are:
+`OPENCLAW_VERSION` is the shared default. Tenant-specific overrides belong in the host control-plane YAML as `openclawVersion`. See [`../../docs/configuration.md`](../../docs/configuration.md) for precedence.
 
-- `COMPOSE_PROJECT_NAME`
-- `BASE_DOMAIN`
-- `INGRESS_MODE`
-- `PUBLIC_URL_SCHEME`
-- `TRAEFIK_BIND_ADDRESS`
-- `CLOUDFLARE_HOSTNAME_MODE`
-- `DATA_ROOT`
-- `TENANT_ENV_ROOT`
-- `TRAEFIK_HTTP_PORT`
-- `TRAEFIK_NETWORK`
-- `TRAEFIK_LOG_LEVEL`
-- `CLOUDFLARE_TUNNEL_ID`
-- `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE`
-- `CLOUDFLARE_TUNNEL_METRICS`
-- `CLOUDFLARED_LAUNCHD_LABEL`
-- `DEPLOY_MODE`
-- `AUTO_ROLLBACK`
-- `IMAGE_REPOSITORY`
-- `OPENCLAW_VERSION`
-- `GATEWAY_IMAGE_TAG`
-- `TENANT_MEMORY_RESERVATION`
-- `TENANT_MEMORY_LIMIT`
-- `TENANT_PIDS_LIMIT`
-- `TENANT_CONTAINER_SECURITY_PROFILE`
-- `MAX_ALWAYS_ON_TENANTS`
-- `BACKUP_ROOT`
-- `RELEASE_ROOT`
-
-Blank values in `.env` are not automatically errors. `OPENCLAW_VERSION`, `GATEWAY_IMAGE_TAG`, `BACKUP_ROOT`, and `RELEASE_ROOT` may be intentionally blank because helper scripts derive defaults.
-
-`OPENCLAW_VERSION` is the shared default. Tenant-specific overrides belong in the host control-plane
-YAML as `openclawVersion`. See [`../../docs/configuration.md`](../../docs/configuration.md) for precedence and ownership details.
-
-`TENANT_CONTAINER_SECURITY_PROFILE` controls the Docker security profile for each tenant's
-single `openclaw-gateway` container. Use:
-
-- `restricted` for the current locked-down Docker defaults
-- `tool-userns` to add `SYS_ADMIN` plus unconfined seccomp/apparmor for CLI tools that need Linux namespaces
-- `privileged` only as a fallback if `tool-userns` still fails on a host
-
-This applies to every sibling tool route inside the tenant container, including `/codex`,
-`/claude`, `/gemini`, and future CLI routes added to `openclaw-gateway`. It does not affect
-unrelated services outside that tenant container.
-
-Recommended host rollout:
-
-1. Set `TENANT_CONTAINER_SECURITY_PROFILE=tool-userns`.
-2. Redeploy the affected tenant.
-3. Run `unshare -U true` inside the container.
-4. Escalate to `privileged` only if that still fails.
+`TENANT_CONTAINER_SECURITY_PROFILE` controls Docker security for each tenant container. Use `restricted` (default), `tool-userns` (adds `SYS_ADMIN` + unconfined seccomp/apparmor for CLI tools), or `privileged` (fallback only). Recommended: start with `tool-userns`, validate with `unshare -U true`, escalate only if needed.
 
 ## Tenant Env
 
-The tenant env template lives at [`../../deploy/tenants/templates/tenant.env.example`](../../deploy/tenants/templates/tenant.env.example).
+Template: [`../../deploy/tenants/templates/tenant.env.example`](../../deploy/tenants/templates/tenant.env.example)
 
-The real tenant env files live under `TENANT_ENV_ROOT`, which should point to a host-managed directory outside git such as `/srv/rundiffusion-agents/secrets/tenants`.
+Real files live under `TENANT_ENV_ROOT` (e.g., `/srv/rundiffusion-agents/secrets/tenants`). Tenant env files hold only tenant-specific values:
 
-Tenant env files hold only tenant-specific values such as:
-
-- `TENANT_SLUG`
-- `TENANT_HOSTNAME`
-- `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS`
-- `OPENCLAW_ACCESS_MODE`
-- `OPENCLAW_GATEWAY_TOKEN`
-- `TERMINAL_ENABLED`
-- `TERMINAL_BASIC_AUTH_USERNAME`
-- `TERMINAL_BASIC_AUTH_PASSWORD`
-- `HERMES_ENABLED`
-- `CODEX_ENABLED`
-- `CLAUDE_ENABLED`
-- `GEMINI_ENABLED`
-- optional `TAILSCALE_ENABLED`
-- optional `TAILSCALE_AUTHKEY`
-- optional `TAILSCALE_HOSTNAME`
-- provider credentials
-
-`OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must be the exact browser origin for the Control UI,
-including `:${TRAEFIK_HTTP_PORT}` when Traefik is not on `80` or `443`.
-For the vanilla native auth flow, the browser origin should be HTTPS or localhost so device
-approval runs in a secure context. Plain HTTP LAN hostnames are not a supported native `/openclaw`
-path.
+| Key | Purpose | Required |
+| --- | --- | --- |
+| `TENANT_SLUG` | Unique tenant identifier | Yes |
+| `TENANT_HOSTNAME` | Public hostname | Yes |
+| `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` | Exact browser origin ([auth rules](../../docs/configuration.md#openclaw-origin--auth-expectations)) | Yes |
+| `OPENCLAW_ACCESS_MODE` | Auth mode: `native` or `trusted-proxy` | Yes |
+| `OPENCLAW_GATEWAY_TOKEN` | Gateway auth token | Yes (native mode) |
+| `TERMINAL_ENABLED` | Enable `/terminal` | Yes |
+| `TERMINAL_BASIC_AUTH_USERNAME` | Terminal auth username | Yes |
+| `TERMINAL_BASIC_AUTH_PASSWORD` | Terminal auth password | Yes |
+| `HERMES_ENABLED` | Enable `/hermes` | Yes |
+| `CODEX_ENABLED` | Enable `/codex` | Yes |
+| `CLAUDE_ENABLED` | Enable `/claude` | Yes |
+| `GEMINI_ENABLED` | Enable `/gemini` | Yes |
+| `TAILSCALE_ENABLED` | Per-tenant Tailscale | No |
+| `TAILSCALE_AUTHKEY` | Tailscale auth key | No |
+| `TAILSCALE_HOSTNAME` | Tailscale hostname | No |
+| Provider API keys | Tenant-specific credentials | No |
 
 ## How Vars Reach Docker
 
 Do not duplicate root vars into tenant env files.
 
-The effective deploy flow is:
+The effective deploy flow:
 
-1. `scripts/lib/common.sh` loads the root `.env`.
-2. Registry values in `deploy/tenants/tenants.yml` are expanded with root vars such as `${DATA_ROOT}` and `${TENANT_ENV_ROOT}`.
-3. `compose_tenant` exports derived values such as:
-   - `TENANT_SLUG`
-   - `TENANT_HOSTNAME`
-   - `TENANT_DATA_ROOT`
-   - `TENANT_ENV_FILE`
-   - `OPENCLAW_IMAGE`
-4. `deploy/tenant-stack.compose.yml` uses those derived values plus root resource limits.
-5. The container receives the tenant env file through `env_file`.
-6. If `TAILSCALE_ENABLED=1`, `compose_tenant` adds a runtime override for `/dev/net/tun`,
-   `NET_ADMIN`, `NET_RAW`, and a tenant-scoped bind mount for `/var/lib/tailscale`.
+1. `scripts/lib/common.sh` loads the root `.env`
+2. Registry values in `deploy/tenants/tenants.yml` expand with root vars (`${DATA_ROOT}`, `${TENANT_ENV_ROOT}`)
+3. `compose_tenant` exports derived values: `TENANT_SLUG`, `TENANT_HOSTNAME`, `TENANT_DATA_ROOT`, `TENANT_ENV_FILE`, `OPENCLAW_IMAGE`
+4. `deploy/tenant-stack.compose.yml` uses those derived values plus root resource limits
+5. The container receives the tenant env file through `env_file`
+6. If `TAILSCALE_ENABLED=1`, adds `/dev/net/tun`, `NET_ADMIN`, `NET_RAW`, and a tenant-scoped bind mount
 
-This means "propagating vars" usually means:
+"Propagating vars" means: ensure root `.env` is complete, registry entry points at the right env file and data root, and tenant env file contains tenant-specific values. Not: copying every root var into every tenant env file.
 
-- ensure the root `.env` is complete and correct
-- ensure the tenant registry entry points at the right env file and data root
-- ensure the tenant env file contains the tenant-specific values
-
-For OpenClaw version selection, keep the shared default in root `.env`, use control-plane
-`openclawVersion` only when one tenant must diverge, and do not copy it into tenant env files.
-
-Not:
-
-- copying every root var into every tenant env file
-
-Recommended host layout:
-
-- `${DATA_ROOT}` -> `/srv/rundiffusion-agents/data`
-- `${TENANT_ENV_ROOT}` -> `/srv/rundiffusion-agents/secrets/tenants`
-- tenant runtime data -> `${DATA_ROOT}/tenants/<slug>`
-- tenant env files -> `${TENANT_ENV_ROOT}/<slug>.env`
+For OpenClaw version selection, keep the shared default in root `.env`, use control-plane `openclawVersion` only when one tenant must diverge, and do not copy it into tenant env files.
 
 ## Safe Mutation Order
 
-When preparing a new or changed tenant:
-
-1. Validate root env against `.env.example`.
-2. Confirm registry entry and expanded paths.
-3. Confirm or edit tenant env values.
-4. Deploy.
-5. Smoke-test.
+1. Validate root env against `.env.example`
+2. Confirm registry entry and expanded paths
+3. Confirm or edit tenant env values
+4. Deploy
+5. Smoke-test

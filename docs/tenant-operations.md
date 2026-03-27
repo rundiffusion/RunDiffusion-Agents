@@ -1,47 +1,41 @@
 # Tenant Operations
 
-This is the day-to-day runbook for the multi-tenant host stack.
+Day-to-day operational runbook for the multi-tenant host stack.
 
-## LAN Expectations
+For LAN expectations and HTTP/HTTPS rules on private networks, see [LAN Expectations](../deploy/README.md#lan-expectations). For browser origin and auth requirements, see [OpenClaw Origin & Auth Expectations](./configuration.md#openclaw-origin--auth-expectations).
 
-For a few tenant instances on a private network, use `INGRESS_MODE=local`.
+---
 
-- `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, and `/gemini` can be
-  served over plain HTTP on the LAN.
-- Native `/openclaw` is not a supported vanilla path on a non-loopback HTTP hostname.
-- If operators on other LAN devices need native `/openclaw`, use HTTPS for that tenant hostname.
-- If you do not want HTTPS, keep native `/openclaw` on localhost or intentionally switch the
-  tenant to `OPENCLAW_ACCESS_MODE=trusted-proxy`.
-
-## Create A Tenant
+## Create a Tenant
 
 1. Confirm `.env` is present and matches `.env.example`
+
 2. Create the tenant:
 
-```bash
-./scripts/create-tenant.sh tenant-a "Tenant A" tenant-a.example.com
-```
+   ```bash
+   ./scripts/create-tenant.sh tenant-a "Tenant A" tenant-a.example.com
+   ```
 
-3. Edit the generated tenant env file under `TENANT_ENV_ROOT`
-   Confirm `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` matches the exact browser origin, including the
-   Traefik port when it is not `80` or `443`. For vanilla native `/openclaw`, use HTTPS unless
-   you are on `localhost`. Plain HTTP LAN hostnames are not a supported native path.
+3. Edit the generated tenant env file under `TENANT_ENV_ROOT`. Confirm `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` matches the exact browser origin. See [auth expectations](./configuration.md#openclaw-origin--auth-expectations) for the full rules.
+
 4. Deploy the tenant:
 
-```bash
-./scripts/deploy.sh --tenant tenant-a
-```
+   ```bash
+   ./scripts/deploy.sh --tenant tenant-a
+   ```
 
-5. Verify it:
+5. Verify:
 
-```bash
-./scripts/status.sh
-./scripts/smoke-test.sh --tenant tenant-a
-```
+   ```bash
+   ./scripts/status.sh
+   ./scripts/smoke-test.sh --tenant tenant-a
+   ```
 
-## Update A Tenant
+---
 
-Update registry metadata:
+## Update a Tenant
+
+**Registry metadata:**
 
 ```bash
 ./scripts/update-tenant.sh tenant-a --display-name "Tenant A Updated"
@@ -50,84 +44,117 @@ Update registry metadata:
 ./scripts/update-tenant.sh tenant-a --enable
 ```
 
-Update tenant secrets or provider keys:
+**Tenant secrets or provider keys:**
 
 1. Edit `${TENANT_ENV_ROOT}/tenant-a.env`
-   If `/openclaw` shows `origin not allowed`, update `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` to the
-   exact public origin you open in the browser, including the port when present.
-   If native `/openclaw` shows a secure-context or device-identity error, move that browser origin
-   to HTTPS or use the standalone single-tenant flow instead.
 2. Redeploy:
 
+   ```bash
+   ./scripts/deploy.sh --tenant tenant-a
+   ```
+
+> **If auth breaks:** If `/openclaw` shows `origin not allowed` or a device-identity error after an update, check the [auth expectations](./configuration.md#openclaw-origin--auth-expectations) for fixes.
+
+---
+
+## Control-Plane Operations
+
+Use the [host control-plane YAML](./configuration.md#layer-2-host-control-plane-overrides) to manage fleet-wide overrides without hand-editing individual tenant env files.
+
+**When to use the control-plane YAML vs the tenant env file:**
+
+| Change | Use |
+| --- | --- |
+| Pin a tenant to a specific OpenClaw version | Control-plane YAML |
+| Inject or rotate managed API keys | Control-plane YAML |
+| Set model allowlists, primary model, fallbacks | Control-plane YAML |
+| Change agent-to-model binding | Control-plane YAML |
+| Toggle route feature flags (Gemini, etc.) | Control-plane YAML |
+| Change tenant hostname or allowed origins | Tenant env file |
+| Change gateway token or Basic Auth credentials | Tenant env file |
+| Enable/disable Tailscale | Tenant env file |
+
+**Workflow:**
+
+1. Edit the control-plane YAML at `${TENANT_CONTROL_PLANE_CONFIG_PATH}`
+2. Redeploy the affected tenant(s):
+
+   ```bash
+   ./scripts/deploy.sh --tenant tenant-a
+   ```
+
+The sync script applies managed fields at deploy time. See [Configuration & Governance](./configuration.md) for the full field list and precedence rules.
+
+---
+
+## Upgrade All Tenants
+
+To upgrade all tenants to a new OpenClaw version:
+
 ```bash
-./scripts/deploy.sh --tenant tenant-a
-```
+# Update the host default
+# Edit .env → OPENCLAW_VERSION=<new-version>
 
-## Deploy, Roll Back, Stop, Delete
-
-Deploy all enabled tenants:
-
-```bash
+# Redeploy all enabled tenants
 ./scripts/deploy.sh
-```
 
-Deploy shared ingress only:
-
-```bash
-./scripts/deploy.sh --shared-only
-```
-
-Roll back a tenant:
-
-```bash
-./scripts/rollback.sh --tenant tenant-a
-```
-
-Stop a tenant:
-
-```bash
-./scripts/stop-tenant.sh tenant-a
-```
-
-Delete a tenant but keep runtime data:
-
-```bash
-./scripts/delete-tenant.sh tenant-a
-```
-
-Delete a tenant and purge data:
-
-```bash
-./scripts/delete-tenant.sh tenant-a --purge
-```
-
-## Health Checks
-
-List tenants:
-
-```bash
-./scripts/list-tenants.sh
-```
-
-Shared status:
-
-```bash
+# Verify
 ./scripts/status.sh
-```
-
-Smoke test one tenant:
-
-```bash
-./scripts/smoke-test.sh --tenant tenant-a
-```
-
-Smoke test all enabled tenants:
-
-```bash
 ./scripts/smoke-test.sh --all
 ```
 
+To upgrade a single tenant via the control-plane:
+
+1. Set `openclawVersion` for that tenant in the control-plane YAML
+2. Redeploy: `./scripts/deploy.sh --tenant <slug>`
+
+---
+
+## Deploy, Roll Back, Stop, Delete
+
+```bash
+# Deploy all enabled tenants
+./scripts/deploy.sh
+
+# Deploy shared ingress only
+./scripts/deploy.sh --shared-only
+
+# Roll back a tenant
+./scripts/rollback.sh --tenant tenant-a
+
+# Stop a tenant
+./scripts/stop-tenant.sh tenant-a
+
+# Delete a tenant (keep data)
+./scripts/delete-tenant.sh tenant-a
+
+# Delete a tenant and purge data
+./scripts/delete-tenant.sh tenant-a --purge
+```
+
+---
+
+## Health Checks
+
+```bash
+# List tenants
+./scripts/list-tenants.sh
+
+# Shared status
+./scripts/status.sh
+
+# Smoke test one tenant
+./scripts/smoke-test.sh --tenant tenant-a
+
+# Smoke test all enabled tenants
+./scripts/smoke-test.sh --all
+```
+
+---
+
 ## Safety Rules
+
+> **Safety rails:** These rules protect your deployment from common operational mistakes.
 
 - Keep root `.env` and tenant env files outside public version control
 - Keep tenant runtime data outside the repo checkout

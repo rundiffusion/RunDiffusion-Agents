@@ -137,8 +137,8 @@ docker compose up -d --build
 
 ## Important Guidance
 
-- `localhost` is the clean native OpenClaw path without HTTPS.
-- If the browser origin moves to a non-loopback hostname, native `/openclaw` needs HTTPS or an intentional switch to `trusted-proxy`.
+- **`localhost` is the clean native OpenClaw path without HTTPS.**
+- **If the browser origin moves to a non-loopback hostname, native `/openclaw` needs HTTPS** or an intentional switch to `trusted-proxy`.
 - For remote single-tenant direct installs, DNS and HTTPS are external to this repo.
 - For remote single-tenant Cloudflare installs, treat the tunnel as host-managed infrastructure outside this package.
 - If the user asks for multiple tenant hostnames, shared ingress, `./scripts/create-tenant.sh`, or repo-root Traefik management, stop and switch to `$rundiffusion-host-agent-manager`.

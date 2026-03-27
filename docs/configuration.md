@@ -1,97 +1,126 @@
-# Configuration Layers
+# Configuration & Governance
 
-This repo has two deployment tracks and up to four configuration layers. Keep them separate.
+RunDiffusion Agents uses a layered configuration model to give operators centralized control over their entire agent fleet. Each layer has a clear purpose, a clear owner, and a clear precedence — so you always know which value wins and why.
+
+This is the governance surface of the platform. If you want to understand how version pins, model policy, secret injection, and route flags flow from a single YAML file to every tenant container, start here.
+
+---
+
+## Configuration Precedence
+
+Higher layers override lower layers. The operator always has the last word.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  CLI flag  (--openclaw-version)                     │  ← Highest precedence
+├─────────────────────────────────────────────────────┤
+│  Host Control-Plane YAML  (per-tenant overrides)    │
+├─────────────────────────────────────────────────────┤
+│  Per-Tenant Env File  (tenant auth & secrets)       │
+├─────────────────────────────────────────────────────┤
+│  Root Host .env  (shared infra defaults)            │  ← Lowest precedence
+├─────────────────────────────────────────────────────┤
+│  Dockerfile defaults  (build-time fallbacks)        │
+└─────────────────────────────────────────────────────┘
+```
+
+**Example: OpenClaw version resolution**
+
+`./scripts/deploy.sh --openclaw-version ...` → tenant `openclawVersion` in control-plane YAML → root `.env` `OPENCLAW_VERSION` → Dockerfile default.
+
+---
+
+## Governance Principles
+
+> **Ground rules:** These rules keep the configuration layers clean and predictable. Violating them creates merge-conflict-grade confusion at deploy time.
+
+- **Do not copy root vars into tenant env files.** Each layer owns its own fields. Duplicating them creates ambiguity about which value wins.
+- **Use the host control-plane YAML for managed keys and model overrides** when that layer is enabled. It exists specifically to centralize fleet-wide governance.
+- **Do not put tenant secrets in `deploy/tenants/tenants.example.yml`.** The registry maps slugs to hostnames — that is all.
+- **Keep `deploy/tenants/tenants.yml` local and ignored.** Real tenant metadata stays in the repo checkout without being committed.
+- **Do not commit `.env` or real tenant env files.** Secrets never belong in git.
+- **Keep runtime state outside the repo checkout.**
+- **Start from the example file for the layer you are actually using.**
+
+> **Best starting point:** When in doubt, start from the `.example` file for your layer. The examples ship with safe defaults and inline comments.
+
+---
 
 ## Deployment Tracks
 
-- `standalone single tenant`
-  Use the single-service `openclaw-gateway` deployment under `services/rundiffusion-agents` when
-  you want one agent package on localhost or on a remote single-service host.
-- `multi-tenant host`
-  Use the Traefik + tenant stack when you want the intended shared-host architecture for LAN users,
-  a cloud VM, or Cloudflare ingress.
+| Track | Package | Use When |
+| --- | --- | --- |
+| **Standalone single-tenant** | `services/rundiffusion-agents/` | One agent on localhost or one remote host. No Traefik. |
+| **Multi-tenant host** | Repo root + Traefik | Shared-host architecture for LAN, cloud, or Cloudflare ingress. |
 
-Choose the deployment track first, then use the configuration layer for that track.
+Choose the track first, then use the configuration layers for that track.
 
-## 1. Root Host Config
+---
 
-Source:
+## What Each Layer Owns (Quick Reference)
 
-- `.env.example`
+| Field | Owning Layer | Applied |
+| --- | --- | --- |
+| Host paths (`DATA_ROOT`, `TENANT_ENV_ROOT`) | Root `.env` | Deploy-time |
+| Ingress mode and bind address | Root `.env` | Deploy-time |
+| Tenant resource limits | Root `.env` | Deploy-time |
+| OpenClaw version pin (per-tenant) | Control-plane YAML | Deploy-time |
+| API key injection (managed secrets) | Control-plane YAML | Deploy-time |
+| Model allowlist, primary, fallbacks | Control-plane YAML | Deploy-time |
+| Agent-to-model binding | Control-plane YAML | Deploy-time |
+| Route feature flags (Gemini, etc.) | Control-plane YAML | Deploy-time |
+| Tenant hostname and allowed origins | Tenant env file | Deploy-time |
+| Gateway token and Basic Auth | Tenant env file | Deploy-time |
+| Tool enablement (`TERMINAL_ENABLED`, etc.) | Tenant env file | Deploy-time |
+| Tenant-specific provider keys | Tenant env file | Deploy-time |
+| Tailscale settings | Tenant env file | Deploy-time |
 
-Purpose:
+---
 
-- shared host paths
-- shared ingress settings
-- image build/deploy behavior
-- tenant resource guardrails
-- shared backup/release roots
+## Layer 1: Root Host Config
 
-Typical examples:
+**Source:** `.env.example`
+**Track:** Multi-tenant only
 
-- `BASE_DOMAIN`
-- `INGRESS_MODE`
-- `PUBLIC_URL_SCHEME`
-- `DATA_ROOT`
-- `TENANT_ENV_ROOT`
-- `TRAEFIK_BIND_ADDRESS`
-- `TRAEFIK_HTTP_PORT`
-- `CLOUDFLARE_TUNNEL_ID`
-- `OPENCLAW_VERSION`
-- `TENANT_CONTAINER_SECURITY_PROFILE`
+Shared infrastructure defaults for the host stack.
 
-Use this for the multi-tenant host stack only.
-Do not use the root host config for the standalone single-tenant path.
+| Variable | Purpose |
+| --- | --- |
+| `BASE_DOMAIN` | Base domain for tenant hostname generation |
+| `INGRESS_MODE` | Routing mode: `local`, `direct`, or `cloudflare` |
+| `PUBLIC_URL_SCHEME` | Browser origin scheme (`http`/`https`); blank = auto-detect |
+| `DATA_ROOT` | Host path for tenant data volumes |
+| `TENANT_ENV_ROOT` | Host path for tenant env files |
+| `TRAEFIK_BIND_ADDRESS` | Interface Traefik listens on |
+| `TRAEFIK_HTTP_PORT` | Port Traefik listens on |
+| `CLOUDFLARE_TUNNEL_ID` | Tunnel ID for Cloudflare ingress |
+| `OPENCLAW_VERSION` | Default OpenClaw version for all tenants |
+| `TENANT_CONTAINER_SECURITY_PROFILE` | Container security profile |
 
-Ingress mode notes:
+**Ingress modes:**
 
-- `INGRESS_MODE=local`
-  Use this for same-host or LAN/private-network deployments. Keep `TRAEFIK_BIND_ADDRESS=127.0.0.1`
-  for same-host access, or bind to a specific LAN IP for internal users. The host stack still works
-  over plain HTTP on a LAN, but vanilla native `/openclaw` does not treat non-loopback HTTP origins
-  as a secure context.
-- `INGRESS_MODE=direct`
-  Use this when Traefik should listen on a public or private interface directly. Set
-  `TRAEFIK_BIND_ADDRESS=0.0.0.0` or a specific interface IP and point your own DNS at that host.
-- `INGRESS_MODE=cloudflare`
-  Use this when `cloudflared` should publish Traefik. In this mode the Cloudflare tunnel values
-  become the active ingress config.
+| Mode | Bind Address | Use When |
+| --- | --- | --- |
+| `local` | `127.0.0.1` or LAN IP | Same-host or private-network deployments |
+| `direct` | `0.0.0.0` or interface IP | Public host with your own DNS + HTTPS |
+| `cloudflare` | `127.0.0.1` (tunnel publishes) | Published through Cloudflare Tunnel |
 
-`PUBLIC_URL_SCHEME` controls the browser origin written into newly created tenant env files. The
-generated `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` value uses the exact browser origin, including
-`TRAEFIK_HTTP_PORT` when Traefik is not on `80` or `443`. Leave `PUBLIC_URL_SCHEME` blank to
-auto-pick `https` for Cloudflare and `http` for local/direct installs.
+`PUBLIC_URL_SCHEME` controls the browser origin written into newly created tenant env files. The generated `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` value uses the exact browser origin, including `TRAEFIK_HTTP_PORT` when Traefik is not on `80` or `443`. Leave it blank to auto-pick `https` for Cloudflare and `http` for local/direct installs.
 
-## 2. Host Control-Plane Overrides
+---
 
-Source:
+## Layer 2: Host Control-Plane Overrides
 
-- `TENANT_CONTROL_PLANE_CONFIG_PATH` from the root `.env`
-- example shape: `deploy/tenants/control-plane.example.yml`
+**Source:** `TENANT_CONTROL_PLANE_CONFIG_PATH` from root `.env`
+**Schema reference:** `deploy/tenants/control-plane.example.yml`
+**Track:** Multi-tenant only
 
-Purpose:
+This is the governance layer. One YAML file on the host centrally manages per-tenant overrides for versions, secrets, models, agents, and routes — without hand-editing individual tenant env files.
 
-- host-only per-tenant managed overrides
-- per-tenant OpenClaw image version selection
-- centralized provider/API key management
-- OpenClaw model availability
-- tenant-wide default model
-- built-in `main` agent startup model
-- selected route flags such as Gemini enablement
+**Managed fields** are the specific fields that the control-plane YAML is authoritative for. At deploy time, `scripts/sync_tenant_control_plane.py` applies these values ahead of the tenant start. Fields outside the managed list still belong to the tenant env file.
 
-Typical examples:
-
-- `openclawVersion`
-- `secrets.GEMINI_API_KEY`
-- `secrets.HERMES_OPENAI_API_KEY`
-- `secrets.CLAUDE_ANTHROPIC_API_KEY`
-- `models.allowed`
-- `models.primary`
-- `models.fallbacks`
-- `agents.main.model`
-- `routes.gemini.enabled`
-
-Example:
+<details>
+<summary><strong>Full YAML example</strong></summary>
 
 ```yaml
 tenants:
@@ -116,157 +145,123 @@ tenants:
         enabled: false
 ```
 
-Behavior:
+</details>
 
-- This file is optional and should stay outside git on real hosts.
-- `openclawVersion` is a deploy-time tenant override for image selection. Precedence is:
-  - `./scripts/deploy.sh --openclaw-version ...`
-  - tenant `openclawVersion`
-  - root `.env` `OPENCLAW_VERSION`
-  - Dockerfile default
-- When it exists and contains a tenant entry, it is authoritative only for the managed fields handled by deploy-time sync.
-- Today that means it overrides older box-local values for:
-  - managed provider/API keys
-  - OpenClaw model availability
-  - `agents.defaults.model`
-  - `agents.list[id=main].model`
-  - Gemini route enablement
-- It also influences which OpenClaw image version `./scripts/deploy.sh --tenant <slug>` builds or selects for that tenant.
-- It does not override:
-  - gateway token
-  - terminal/basic auth
-  - hostname or allowed origins
-  - Tailscale settings
-  - non-`main` agents
-  - operator Codex auth/session/profile state
-- `openclawVersion` is not copied into tenant env files. It stays host-side and is consumed by the deploy tooling.
+**Available managed fields:**
 
-This layer is applied at deploy time, not continuously on boot.
+| Field | Purpose |
+| --- | --- |
+| `openclawVersion` | Pin one tenant to a specific OpenClaw build |
+| `secrets.GEMINI_API_KEY` | Managed Gemini API key |
+| `secrets.GEMINI_CLI_API_KEY` | Managed Gemini CLI API key |
+| `secrets.HERMES_OPENAI_API_KEY` | Managed Hermes OpenAI key |
+| `secrets.CODEX_OPENAI_API_KEY` | Managed Codex OpenAI key |
+| `secrets.CLAUDE_ANTHROPIC_API_KEY` | Managed Claude Anthropic key |
+| `secrets.OPENROUTER_API_KEY` | Managed OpenRouter key |
+| `models.allowed` | Tenant-wide model allowlist |
+| `models.primary` | Default model selection |
+| `models.fallbacks` | Fallback model chain |
+| `agents.main.model` | Startup model for the built-in `main` agent |
+| `providers.google.hydrateAuth` | Google auth hydration behavior |
+| `routes.gemini.enabled` | Deploy-time Gemini route enable flag |
 
-Available parameters:
+**What the control-plane does NOT override:**
 
-- `openclawVersion`
-  Pin one tenant to a specific OpenClaw build without changing the host default for everyone else.
-- `secrets.GEMINI_API_KEY`
-- `secrets.GEMINI_CLI_API_KEY`
-- `secrets.HERMES_OPENAI_API_KEY`
-- `secrets.CODEX_OPENAI_API_KEY`
-- `secrets.CLAUDE_ANTHROPIC_API_KEY`
-- `secrets.OPENROUTER_API_KEY`
-  Managed provider credentials applied at deploy time for that tenant.
-- `models.allowed`
-- `models.primary`
-- `models.fallbacks`
-  Tenant-wide OpenClaw model availability and default/fallback policy.
-- `agents.main.model`
-  Startup model for the built-in `main` agent.
-- `providers.google.hydrateAuth`
-  Controls Google auth hydration behavior for the tenant.
-- `routes.gemini.enabled`
-  Deploy-time Gemini route enable flag for the tenant.
+- Gateway token
+- Terminal/Basic Auth credentials
+- Hostname or allowed origins
+- Tailscale settings
+- Non-`main` agents
+- Operator Codex auth/session/profile state
 
-How it overrides local settings:
+> **Host-only file:** This file is optional, should stay outside git on real hosts, and is applied at deploy time — not continuously on boot. Use the tracked example in `deploy/tenants/control-plane.example.yml` as the schema reference.
 
-- The control-plane YAML is host-authoritative only for the managed fields listed above.
-- At deploy time, `scripts/sync_tenant_control_plane.py` applies those managed values ahead of the tenant start.
-- This lets operators centralize shared overrides in one host-side file instead of hand-editing each tenant env file or changing container state by hand.
-- Fields outside the managed list still belong to the tenant env file or other host config layers.
+---
 
-Use the tracked shape in `deploy/tenants/control-plane.example.yml` as the schema reference, but keep
-the real file outside git on production hosts.
+## Layer 3: Per-Tenant Config
 
-## 3. Per-Tenant Config
+**Source:** `deploy/tenants/templates/tenant.env.example`
+**Track:** Multi-tenant only
 
-Source:
+Tenant-specific identity, auth, and provider keys. Keep tenant env files outside git.
 
-- `deploy/tenants/templates/tenant.env.example`
+| Variable | Purpose |
+| --- | --- |
+| `TENANT_SLUG` | Unique tenant identifier |
+| `TENANT_HOSTNAME` | Public hostname for this tenant |
+| `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` | Exact browser origin (see [Auth Expectations](#openclaw-origin--auth-expectations)) |
+| `OPENCLAW_GATEWAY_TOKEN` | Gateway authentication token |
+| `TERMINAL_BASIC_AUTH_USERNAME` | Dashboard/terminal auth username |
+| `TERMINAL_BASIC_AUTH_PASSWORD` | Dashboard/terminal auth password |
+| `GEMINI_API_KEY` | Tenant-specific Gemini key (if not managed via control-plane) |
+| `OPENROUTER_API_KEY` | Tenant-specific OpenRouter key |
+| `TAILSCALE_ENABLED` | Per-tenant Tailscale toggle |
 
-Purpose:
+> **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port. Example: `http://tenant-a.example.com:38080` when Traefik is on port `38080`.
 
-- tenant hostname and auth
-- tenant enablement for `/terminal`, `/hermes`, `/codex`, `/claude`, `/gemini`
-- tenant-specific provider keys
-- optional per-tenant Tailscale settings
+---
 
-Typical examples:
+## Layer 4: Standalone Gateway Config
 
-- `TENANT_SLUG`
-- `TENANT_HOSTNAME`
-- `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS`
-- `OPENCLAW_GATEWAY_TOKEN`
-- `TERMINAL_BASIC_AUTH_USERNAME`
-- `TERMINAL_BASIC_AUTH_PASSWORD`
-- `GEMINI_API_KEY`
-- `OPENROUTER_API_KEY`
-- `TAILSCALE_ENABLED`
+**Source:** `services/rundiffusion-agents/.env.example`
+**Track:** Standalone single-tenant only
 
-Keep tenant env files outside git.
+Single-service deployment without the multi-tenant orchestration layer.
 
-`OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the exact public origin opened in the browser.
-Example: `http://tenant-a.example.com:38080` when Traefik is exposed on port `38080`.
-For vanilla native OpenClaw auth, the Control UI browser session should use HTTPS or localhost so
-the device-identity flow has a secure context. Plain HTTP LAN hostnames are not a supported native
-`/openclaw` path.
+| Variable | Purpose |
+| --- | --- |
+| `OPENCLAW_ACCESS_MODE` | Auth mode: `native` or `trusted-proxy` |
+| `OPENCLAW_GATEWAY_TOKEN` | Gateway authentication token |
+| `TERMINAL_ENABLED` | Enable/disable terminal |
+| `TERMINAL_BASIC_AUTH_USERNAME` | Terminal auth username |
+| `TERMINAL_BASIC_AUTH_PASSWORD` | Terminal auth password |
+| Tool-specific API keys | Optional provider credentials |
 
-## 4. Standalone Gateway Config
+> **Easiest local setup:** For the recommended local path, bind to `localhost` and use `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080`. If you later move to a non-loopback hostname, native `/openclaw` needs HTTPS or a switch to `trusted-proxy`.
 
-Source:
-
-- `services/rundiffusion-agents/.env.example`
-
-Purpose:
-
-- single-service `openclaw-gateway` deployment
-- localhost, remote standalone hosts, or one-service platforms
-- persistent `/data` volume without the multi-tenant orchestration layer
-
-Typical examples:
-
-- `OPENCLAW_ACCESS_MODE`
-- `OPENCLAW_GATEWAY_TOKEN`
-- `TERMINAL_ENABLED`
-- `TERMINAL_BASIC_AUTH_USERNAME`
-- `TERMINAL_BASIC_AUTH_PASSWORD`
-- optional tool-specific API keys
-
-For the recommended simple local path, bind the container to `localhost` and use an explicit
-loopback allowlist such as `http://127.0.0.1:8080,http://localhost:8080`. If you later move the
-browser origin to a non-loopback hostname, native `/openclaw` needs HTTPS or an intentional switch
-to `trusted-proxy`.
+---
 
 ## Tenant Registry
 
-Tracked template:
+**Tracked template:** `deploy/tenants/tenants.example.yml`
+**Local working file:** `deploy/tenants/tenants.yml` (gitignored)
 
-- `deploy/tenants/tenants.example.yml`
+Maps tenant slugs to hostnames, env files, and data roots. Determines which tenants are enabled.
 
-Local ignored working file:
+The example file ships with `tenants: []` and is intentionally public-safe. The local `tenants.yml` is ignored so operators can keep real tenant metadata without committing it.
 
-- `deploy/tenants/tenants.yml`
+Real tenant secrets belong in external tenant env files, not in the registry.
 
-Purpose:
+---
 
-- map tenant slugs to hostnames
-- map tenants to env files and data roots
-- determine which tenants are enabled
+## OpenClaw Origin & Auth Expectations
 
-The example file is intentionally public-safe and should ship with:
+This section is the single source of truth for OpenClaw's browser origin and authentication requirements. Other docs in this repo link here rather than repeating these rules.
 
-```yaml
-tenants: []
-```
+**The core rule:** Vanilla native `/openclaw` requires a **secure context** — meaning the browser origin must be either `localhost` / `127.0.0.1` (any port) or an HTTPS hostname.
 
-The local `deploy/tenants/tenants.yml` file is ignored so operators can keep real tenant
-metadata in the repo checkout without committing it.
+**What works:**
 
-Real tenant secrets still belong in external tenant env files, not in the registry.
+| Browser Origin | Native `/openclaw` | Dashboard, Terminal, Other Tools |
+| --- | --- | --- |
+| `http://127.0.0.1:8080` | Works | Works |
+| `http://localhost:8080` | Works | Works |
+| `https://agent.example.com` | Works | Works |
+| `http://agent.local:38080` (LAN) | Does NOT work | Works |
+| `http://192.168.1.50:38080` (LAN IP) | Does NOT work | Works |
 
-## Rules Of Thumb
+**Common errors and fixes:**
 
-- Do not copy root vars into tenant env files.
-- Use the host control-plane YAML for managed keys and startup-model overrides when that layer is enabled.
-- Do not put tenant secrets in `deploy/tenants/tenants.example.yml`.
-- Keep `deploy/tenants/tenants.yml` local and ignored.
-- Do not commit `.env` or real tenant env files.
-- Keep runtime state outside the repo checkout.
-- Start from the example file for the layer you are actually using.
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `origin not allowed` | `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` does not match the browser URL | Set it to the **exact** origin the browser opens (scheme + host + port) |
+| `control ui requires device identity` | Browser is on plain HTTP with a non-loopback hostname | Move to HTTPS (Cloudflare Tunnel, reverse proxy with TLS, or direct cert) or use `localhost` |
+| `Too many unauthorized attempts` | Repeated failed device approval | Wait for the rate limit to expire, then retry |
+
+**Paths to HTTPS for non-loopback hostnames:**
+
+- **Cloudflare Tunnel** — easiest, no cert management
+- **Reverse proxy with TLS termination** — nginx, Caddy, etc. in front of the service
+- **Direct certificate** — Let's Encrypt or similar, applied to the host
+
+> **LAN nuance:** Plain HTTP on LAN hostnames is fine for `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, and `/gemini`. Only vanilla native `/openclaw` requires the secure context. If you use `OPENCLAW_ACCESS_MODE=trusted-proxy`, the secure-context requirement shifts to your proxy layer.

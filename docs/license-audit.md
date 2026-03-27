@@ -1,72 +1,50 @@
 # License Audit
 
-This is an engineering-facing license inventory for the current repo state as of
-2026-03-25. It is not legal advice.
+Engineering-facing license inventory for the current repo state as of 2026-03-25. This is not legal advice.
 
-## Recommendation
+> **Recommendation:** License the repository under Apache-2.0, ship a root `NOTICE` file stating third-party components keep their own licenses, and treat Claude Code as the main release risk — this repo can orchestrate it, but this repo's license does not make Claude Code open source or grant Anthropic usage rights.
 
-- License the repository itself under Apache-2.0.
-- Ship a root `NOTICE` file that states clearly that third-party components keep
-  their own licenses and terms.
-- Treat Claude Code as the main release risk: this repo can orchestrate it, but
-  this repo's license does not make Claude Code open source or grant Anthropic
-  usage rights.
+---
 
 ## Scope
 
 This audit was based on:
 
-- the dashboard lockfile at
-  [`services/rundiffusion-agents/dashboard/package-lock.json`](../services/rundiffusion-agents/dashboard/package-lock.json)
-- the dashboard manifest at
-  [`services/rundiffusion-agents/dashboard/package.json`](../services/rundiffusion-agents/dashboard/package.json)
-- the standalone container build at
-  [`services/rundiffusion-agents/Dockerfile`](../services/rundiffusion-agents/Dockerfile)
-- the multi-tenant host stack at [`compose.prod.yml`](../compose.prod.yml)
-- a live local gateway container sampled on 2026-03-25 to confirm currently
-  installed global CLI versions
+- Dashboard lockfile: [`services/rundiffusion-agents/dashboard/package-lock.json`](../services/rundiffusion-agents/dashboard/package-lock.json)
+- Dashboard manifest: [`services/rundiffusion-agents/dashboard/package.json`](../services/rundiffusion-agents/dashboard/package.json)
+- Standalone container build: [`services/rundiffusion-agents/Dockerfile`](../services/rundiffusion-agents/Dockerfile)
+- Multi-tenant host stack: [`compose.prod.yml`](../compose.prod.yml)
+- A live local gateway container sampled on 2026-03-25
 
-This document covers direct repo dependencies and the major bundled or
-orchestrated components. It does not fully enumerate every Debian package pulled
-in through `apt`, every Python transitive dependency pulled by Hermes extras, or
-every upstream dependency installed inside OpenClaw's own build. Those remain a
-second-pass item if you want a container-distribution-grade SBOM.
+Covers direct repo dependencies and major bundled/orchestrated components. Does not enumerate every Debian `apt` package, Python transitive dependency from Hermes, or upstream OpenClaw dependency. Those remain a second-pass item for container-distribution-grade SBOMs.
+
+---
 
 ## High-Level Result
 
-The repo is in a workable place for open-sourcing under Apache-2.0 because the
-first-party code is your own and the direct dependency surface is mostly
-permissive. The main things to watch are:
+The repo is in a workable place for open-sourcing under Apache-2.0:
 
-1. `@anthropic-ai/claude-code` is not open-source software.
-2. The Dockerfile installs several CLIs with `@latest`, so future builds can
-   drift in version and license posture.
-3. Hermes and OpenClaw pull additional transitive dependencies outside this
-   repo's lockfiles, so image-level audits are not yet reproducible from git
-   alone.
-4. The dashboard tree includes one attribution-style content license
-   (`CC-BY-4.0`) and one weak-copyleft family (`MPL-2.0`), both of which should
-   be documented but do not force this repo to become copyleft.
+1. First-party code is RunDiffusion's own
+2. Direct dependency surface is mostly permissive
+3. `@anthropic-ai/claude-code` is not open-source software
+4. The Dockerfile installs several CLIs with `@latest`, so future builds can drift
+5. Hermes and OpenClaw pull transitive dependencies outside this repo's lockfiles
+6. The dashboard tree includes `CC-BY-4.0` (attribution) and `MPL-2.0` (weak-copyleft) — documented but do not force copyleft
 
 ## Repo License Choice
 
-Apache-2.0 is the best fit here because it:
+Apache-2.0 is the best fit because it:
 
-- is compatible with your current direct dependency mix
-- includes an explicit patent grant
-- works well with a root `NOTICE` file
-- makes it easier to say "our code is Apache-2.0, but third-party tools keep
-  their own licenses and service terms"
+- Is compatible with the current direct dependency mix
+- Includes an explicit patent grant
+- Works well with a root `NOTICE` file
+- Makes it easy to say "our code is Apache-2.0, but third-party tools keep their own licenses"
 
-MIT would also be possible, but Apache-2.0 gives you a cleaner release story for
-an orchestration platform that mixes many upstream tools.
+---
 
 ## Dashboard NPM Audit
 
-The dashboard lockfile currently contains 189 resolved packages.
-
-License counts from
-[`services/rundiffusion-agents/dashboard/package-lock.json`](../services/rundiffusion-agents/dashboard/package-lock.json):
+189 resolved packages in the dashboard lockfile.
 
 | License | Count | Notes |
 | --- | ---: | --- |
@@ -78,7 +56,8 @@ License counts from
 | CC-BY-4.0 | 1 | `caniuse-lite` |
 | 0BSD | 1 | `tslib` |
 
-Direct dashboard dependencies:
+<details>
+<summary><strong>Direct dashboard dependencies</strong></summary>
 
 | Package | Version | License |
 | --- | --- | --- |
@@ -98,71 +77,60 @@ Direct dashboard dependencies:
 | `typescript` | `5.9.3` | Apache-2.0 |
 | `vite` | `7.3.1` | MIT |
 
-Notable non-MIT items in the resolved tree:
+</details>
 
-- `caniuse-lite` is `CC-BY-4.0`
-  This is an attribution-focused data license, so keep a third-party notice in
-  the repo and do not imply it becomes Apache-2.0.
-- `lightningcss` and its platform packages are `MPL-2.0`
-  MPL is file-level copyleft. Using it as an unmodified dependency in the build
-  toolchain does not require relicensing your repository, but modified
-  `lightningcss` files would carry MPL obligations.
+**Notable non-MIT items:**
 
-## Major Bundled Or Orchestrated Components
+- **`caniuse-lite` (CC-BY-4.0):** Attribution-focused data license. Keep a third-party notice; do not imply it becomes Apache-2.0.
+- **`lightningcss` (MPL-2.0):** File-level copyleft. Using as an unmodified build dependency does not require relicensing. Modified `lightningcss` files would carry MPL obligations.
 
-| Component | Where it appears | Version evidence | License or terms | Notes |
-| --- | --- | --- | --- | --- |
-| OpenClaw | Dockerfile global npm install | Dockerfile pins `OPENCLAW_VERSION`; installed sample showed `openclaw@2026.3.13` | MIT | Core bundled app |
-| Hermes Agent | Dockerfile git clone + pip editable install | Dockerfile pins `HERMES_REF=v2026.3.12`; sampled container reported `hermes-agent 0.2.0` | MIT | Bundled delegated-task agent |
-| OpenAI Codex CLI | Dockerfile global npm install | Sampled container reported `@openai/codex@0.116.0` | Apache-2.0 | Software is open source, but OpenAI service use still has separate terms |
-| Google Gemini CLI | Dockerfile global npm install | Sampled container reported `@google/gemini-cli@0.35.0` | Apache-2.0 | Software is open source, but Google service use still has separate terms |
-| Claude Code | Dockerfile global npm install | Sampled container reported `@anthropic-ai/claude-code@2.1.83` | Anthropic commercial terms | Main licensing red flag; not open-source software |
-| FileBrowser Quantum | Docker multi-stage copy from `ghcr.io/gtsteffaniak/filebrowser:stable-slim` | Sampled container reported `v1.2.3-stable` | Apache-2.0 | Bundled binary copied into final image |
-| ttyd | Dockerfile downloads GitHub release binary | Dockerfile pins `TTYD_VERSION=1.7.7`; sample showed `1.7.7-40e79c7` | MIT | Bundled terminal web bridge |
-| tailscale | Dockerfile apt install from Tailscale repo | Sampled container reported `1.96.2` | BSD-3-Clause | Bundled in image |
-| Homebrew/brew | Dockerfile installs Linuxbrew/Homebrew | Dockerfile installs HEAD script | BSD-2-Clause | Bundled developer tooling layer |
-| Traefik | `compose.prod.yml` | Repo pins `traefik:v3.4` by default | MIT | Multi-tenant ingress |
-| cloudflared | Docs and helper scripts | Host-managed, optional | Apache-2.0 | Not bundled in standalone image, but part of recommended host path |
+---
 
-## What To Worry About
+## Major Bundled or Orchestrated Components
+
+| Component | License | Version Evidence | Notes |
+| --- | --- | --- | --- |
+| OpenClaw | MIT | Dockerfile pins `OPENCLAW_VERSION` | Core bundled app |
+| Hermes Agent | MIT | Dockerfile pins `HERMES_REF=v2026.3.12` | Delegated-task agent |
+| OpenAI Codex CLI | Apache-2.0 | `@openai/codex@0.116.0` | OSS, but OpenAI service terms apply |
+| Google Gemini CLI | Apache-2.0 | `@google/gemini-cli@0.35.0` | OSS, but Google service terms apply |
+| Claude Code | **Anthropic commercial** | `@anthropic-ai/claude-code@2.1.83` | **Not open source** |
+| FileBrowser Quantum | Apache-2.0 | `v1.2.3-stable` | Bundled binary |
+| ttyd | MIT | Dockerfile pins `TTYD_VERSION=1.7.7` | Terminal web bridge |
+| Tailscale | BSD-3-Clause | `1.96.2` | Bundled in image |
+| Homebrew/brew | BSD-2-Clause | HEAD script | Developer tooling layer |
+| Traefik | MIT | `traefik:v3.4` | Multi-tenant ingress |
+| cloudflared | Apache-2.0 | Host-managed, optional | Not bundled in standalone image |
+
+---
+
+## Risk Areas & Mitigations
 
 ### 1. Claude Code Is Not Open Source
 
-This is the main thing that can confuse downstream users. A person seeing a
-`/claude` route in an Apache-2.0 repository could incorrectly assume the tool
-itself is Apache-2.0 too. It is not.
+> **Watch out:** A person seeing a `/claude` route in an Apache-2.0 repository could incorrectly assume the tool itself is Apache-2.0. It is not.
 
-The current repo now addresses that by adding a root `NOTICE`, but the product
-story should stay consistent everywhere you mention Claude Code.
+The repo addresses this with a root `NOTICE` file, but the product story should stay consistent everywhere Claude Code is mentioned.
+
+**Mitigation:** The NOTICE file and this audit document explicitly state that Claude Code is not open source. The `/claude` route documentation should maintain this distinction.
 
 ### 2. `@latest` Means Audit Drift
 
-The Dockerfile currently installs these without pinning a version in git:
+The Dockerfile installs without pinning: `@openai/codex@latest`, `@anthropic-ai/claude-code@latest`, `@google/gemini-cli@latest`.
 
-- `@openai/codex@latest`
-- `@anthropic-ai/claude-code@latest`
-- `@google/gemini-cli@latest`
+Your next public build could change even if the repo does not.
 
-That means your next public build could change even if the repo does not. For a
-repeatable OSS release, either pin these explicitly or re-audit them at release
-time and update this document.
+**Mitigation:** Pin versions in the Dockerfile at release time and update this document. Consider adding a CI check that flags unpinned installs.
 
-### 3. Image-Level Dependency Drift Still Exists
+### 3. Image-Level Dependency Drift
 
-Two parts of the build pull in transitive dependencies that are not locked in
-this repo:
+OpenClaw Control UI build (`npm install`) and Hermes install (`pip install`) pull transitive dependencies not locked in this repo.
 
-- OpenClaw Control UI build:
-  the Dockerfile downloads upstream OpenClaw source and runs `npm install`
-- Hermes install:
-  the Dockerfile clones Hermes and runs editable `pip install` commands
+**Mitigation:** A container-distribution-grade SBOM is a second-pass item. For now, re-audit at each release per the [release checklist](./release-checklist.md).
 
-If you want a fully reproducible, image-level license bill of materials, pin or
-lock those dependency trees as part of the release process.
+---
 
 ## Upstream Source Pointers
-
-Primary upstream references used for the major component licenses:
 
 - [openclaw/openclaw](https://github.com/openclaw/openclaw)
 - [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)

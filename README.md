@@ -34,17 +34,13 @@
 
 ---
 
-<p align="center">
-  <img src="images/RD-Agents-Hero-Large.jpeg" alt="RunDiffusion Agents — agentic AI platform for self-hosted AI agent orchestration and fleet management" width="800">
-</p>
-
 <div align="center">
 <table>
 <tr>
 <td align="center" width="50%">
 
 **Multi-agent orchestration**<br>
-<sub>Run OpenClaw, Codex, Claude, Gemini & Hermes side-by-side</sub>
+<sub>Run OpenClaw, Codex, Claude, Gemini & Hermes side-by-side. With a Filebrowser and full Terminal</sub>
 
 </td>
 <td align="center" width="50%">

@@ -40,29 +40,32 @@ Action:
 3. Confirm the tenant is enabled in the local `deploy/tenants/tenants.yml`.
 4. Confirm the tenant env file still exists at the path referenced by the registry.
 
-## OpenClaw Shows `origin not allowed`
+## Container Starts But Routes Return 502
 
 Symptom:
 
-- `/openclaw` loads an `origin not allowed` message in the browser
+- `docker ps` shows the tenant container running
+- `/healthz` succeeds when curled from inside the container
+- Traefik returns `502 Bad Gateway` for the tenant hostname
 
 Action:
 
-1. Check `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` in the tenant env file.
-2. Make it match the exact browser origin, including the Traefik port when it is not `80` or `443`.
-3. Redeploy the tenant.
+1. Confirm the tenant container is on the correct Traefik Docker network (`TRAEFIK_NETWORK`).
+2. Confirm the dynamic Traefik config references the correct container name and internal port.
+3. Confirm Traefik can resolve the container — `docker network inspect <TRAEFIK_NETWORK>` should list it.
+4. Re-render the Traefik dynamic config and redeploy the tenant.
+
+## OpenClaw Shows `origin not allowed`
+
+Symptom: `/openclaw` loads an `origin not allowed` message in the browser.
+
+Action: Fix `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` to match the exact browser origin (including port) and redeploy. See [OpenClaw Origin & Auth Expectations](../../../docs/configuration.md#openclaw-origin--auth-expectations) for the full rules.
 
 ## OpenClaw Requires Device Identity On HTTP
 
-Symptom:
+Symptom: `/openclaw` shows `control ui requires device identity`.
 
-- `/openclaw` shows `control ui requires device identity (use HTTPS or localhost secure context)`
-
-Action:
-
-1. Use HTTPS for the browser origin, or use localhost.
-2. Redeploy the tenant if you changed routing or the public origin.
-3. Prefer the native device-approval flow over bypass flags for community-facing guidance.
+Action: Move the browser origin to HTTPS or localhost. See [OpenClaw Origin & Auth Expectations](../../../docs/configuration.md#openclaw-origin--auth-expectations) for the full rules.
 
 ## Shared Ingress Failure
 

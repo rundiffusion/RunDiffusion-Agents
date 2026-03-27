@@ -1,8 +1,8 @@
 # Workflows
 
 This reference is for the multi-tenant host stack only.
-If inspection shows the request is really a single-tenant deployment under
-`services/rundiffusion-agents`, use `$rundiffusion-standalone-agent-manager` instead.
+**If inspection shows the request is really a single-tenant deployment under
+`services/rundiffusion-agents`, stop and use `$rundiffusion-standalone-agent-manager` instead.**
 
 ## Create Tenant
 
@@ -49,8 +49,8 @@ Config or secret updates:
    If `/openclaw` shows `origin not allowed`, update `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` to the
    exact public origin you open in the browser, including the port when present.
    If `/openclaw` says it requires device identity, move the browser origin to HTTPS or localhost.
-   If the requested deployment is really localhost-only Docker, stop and switch to
-   `$rundiffusion-standalone-agent-manager`.
+   **If the requested deployment is really localhost-only Docker, stop and switch to
+   `$rundiffusion-standalone-agent-manager`.**
 2. Redeploy:
 
 ```bash

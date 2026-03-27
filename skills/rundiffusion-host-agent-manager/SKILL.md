@@ -73,17 +73,19 @@ Use [`scripts/validate_skill.py`](./scripts/validate_skill.py) to validate this 
 
 This deployment has three host-side config layers:
 
-- Root `.env`: shared host settings such as `DATA_ROOT`, `TENANT_ENV_ROOT`, `TRAEFIK_*`, `IMAGE_REPOSITORY`, and release behavior.
-- Optional host-only control-plane YAML: tenant-scoped managed overrides such as `openclawVersion`, provider keys, startup model state, and route flags.
-- Tenant env file: tenant-specific auth, enable flags, and provider credentials such as `OPENCLAW_GATEWAY_TOKEN`, `TERMINAL_BASIC_AUTH_*`, `GEMINI_API_KEY`, and related tool keys.
+| Layer | Source | Owns |
+| --- | --- | --- |
+| **Root `.env`** | `.env.example` | Shared host settings: `DATA_ROOT`, `TENANT_ENV_ROOT`, `TRAEFIK_*`, `IMAGE_REPOSITORY`, release behavior |
+| **Control-plane YAML** (optional) | Host-only file outside git | Tenant-scoped managed overrides: `openclawVersion`, provider keys, startup model state, route flags |
+| **Tenant env file** | `${TENANT_ENV_ROOT}/<slug>.env` | Tenant-specific auth, enable flags, provider credentials: `OPENCLAW_GATEWAY_TOKEN`, `TERMINAL_BASIC_AUTH_*`, `GEMINI_API_KEY` |
 
 Important:
 
-- Root vars are not copied into tenant env files.
+- **Root vars are not copied into tenant env files.**
 - `TENANT_CONTROL_PLANE_CONFIG_PATH` points to the optional host-only YAML. Default: `${TENANT_ENV_ROOT}/control-plane.yml`.
-- When the control-plane YAML exists and contains a tenant entry, it is authoritative for the deploy-time managed fields handled by `scripts/sync_tenant_control_plane.py`.
+- **When the control-plane YAML exists and contains a tenant entry, it is authoritative** for the deploy-time managed fields handled by `scripts/sync_tenant_control_plane.py`.
 - `deploy/tenants/tenants.yml` is created automatically from `deploy/tenants/tenants.example.yml` when missing.
-- `./scripts/create-tenant.sh` creates both the registry entry and the tenant env file at `${TENANT_ENV_ROOT}/<slug>.env`.
+- **`./scripts/create-tenant.sh` creates both the registry entry and the tenant env file** at `${TENANT_ENV_ROOT}/<slug>.env`.
 - Root vars are exported by `scripts/lib/common.sh` and used to derive compose inputs like `TENANT_ENV_FILE`, `TENANT_DATA_ROOT`, `TENANT_HOSTNAME`, `TRAEFIK_NETWORK`, and `OPENCLAW_IMAGE`.
 - `./scripts/deploy.sh` now also derives `TENANT_MANAGED_ENV_FILE` and runs deploy-time sync from the host control-plane YAML before starting the tenant.
 - The tenant container itself receives both the tenant env file and the managed env overlay through `deploy/tenant-stack.compose.yml`.
