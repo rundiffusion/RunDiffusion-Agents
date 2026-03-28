@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <em>One YAML control plane to deploy, govern, and scale your AI agent fleet.</em><br>
+  <em>One control plane to deploy, govern, and scale your AI agent fleet.</em><br>
   Running in production at RunDiffusion since February 2026.
 </p>
 
