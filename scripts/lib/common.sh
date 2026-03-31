@@ -271,6 +271,13 @@ resolved_public_origin_for_hostname() {
   scheme="$(resolved_public_url_scheme)"
   port="${TRAEFIK_HTTP_PORT}"
 
+  # Cloudflare publishes the browser-facing origin on the tunnel hostname,
+  # not on Traefik's local bind port.
+  if ingress_uses_cloudflare; then
+    printf '%s://%s\n' "${scheme}" "${hostname}"
+    return 0
+  fi
+
   if [[ "${scheme}" == "http" && "${port}" == "80" ]] || [[ "${scheme}" == "https" && "${port}" == "443" ]]; then
     printf '%s://%s\n' "${scheme}" "${hostname}"
     return 0
@@ -950,7 +957,12 @@ EOF
     fi
   } > "${temp_path}"
 
-  mv "${temp_path}" "${output_path}"
+  if [[ -f "${output_path}" ]]; then
+    cat "${temp_path}" > "${output_path}"
+    rm -f "${temp_path}"
+  else
+    mv "${temp_path}" "${output_path}"
+  fi
 
   printf '%s\n' "${output_path}"
 }

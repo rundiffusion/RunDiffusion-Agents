@@ -16,3 +16,5 @@ services/rundiffusion-agents/.claude/
 deploy/tenants/env/
 deploy/tenants/generated/
 deploy/tenants/tenants.yml
+gateway/.codex/
+gateway/.openclaw/

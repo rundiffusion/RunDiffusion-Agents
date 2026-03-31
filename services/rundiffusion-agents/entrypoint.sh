@@ -807,6 +807,12 @@ configure_filebrowser() {
   node /app/configure_filebrowser.js
 }
 
+reconcile_filebrowser_permissions() {
+  if ! node /app/reconcile_filebrowser_permissions.js; then
+    echo "[entrypoint] Warning: FileBrowser permission reconciliation failed; continuing startup."
+  fi
+}
+
 ensure_tmux_session() {
   local label="$1"
   local session_name="$2"
@@ -1059,6 +1065,7 @@ start_ttyd_route gemini_enabled GEMINI_PID "Gemini" "${GEMINI_INTERNAL_PORT}" "$
 
 wait_for_tcp_listener "OpenClaw gateway" "${OPENCLAW_INTERNAL_PORT}"
 wait_for_tcp_listener "FileBrowser Quantum" "${FILEBROWSER_INTERNAL_PORT}"
+reconcile_filebrowser_permissions
 wait_for_tcp_listener "dashboard server" "${DASHBOARD_INTERNAL_PORT}"
 
 if terminal_enabled; then

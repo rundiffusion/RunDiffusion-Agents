@@ -5,6 +5,18 @@ const path = require("node:path");
 
 const { normalizeString } = require("./lib/utils");
 
+const FILEBROWSER_PROXY_USERNAME_PREFIX = "filebrowser-";
+const FILEBROWSER_FULL_PERMISSIONS = Object.freeze({
+  api: true,
+  admin: true,
+  modify: true,
+  share: true,
+  realtime: true,
+  delete: true,
+  create: true,
+  download: true,
+});
+
 function parsePort(rawValue, fallback) {
   const value = normalizeString(rawValue);
   if (!value) return fallback;
@@ -31,6 +43,28 @@ function normalizeBaseUrl(rawValue) {
   }
 
   return value === "/" ? value : value.replace(/\/+$/, "");
+}
+
+function withFilebrowserProxyPrefix(username) {
+  const value = normalizeString(username);
+  if (!value) {
+    return "";
+  }
+
+  return value.startsWith(FILEBROWSER_PROXY_USERNAME_PREFIX)
+    ? value
+    : `${FILEBROWSER_PROXY_USERNAME_PREFIX}${value}`;
+}
+
+function resolveFilebrowserAdminUsername(env = process.env) {
+  const explicitUsername = withFilebrowserProxyPrefix(env.FILEBROWSER_ADMIN_USERNAME);
+  if (explicitUsername) {
+    return explicitUsername;
+  }
+
+  return withFilebrowserProxyPrefix(
+    env.TERMINAL_BASIC_AUTH_USERNAME || env.OPENCLAW_BASIC_AUTH_USERNAME || env.FILEBROWSER_USERNAME || "operator",
+  );
 }
 
 function maybeAddSource(sources, seenPaths, rawPath, name, defaultEnabled = true) {
@@ -98,6 +132,7 @@ function resolveFilebrowserOptions(env = process.env) {
     cacheDir,
     internalPort: parsePort(env.FILEBROWSER_INTERNAL_PORT, 8082),
     baseURL: normalizeBaseUrl(env.FILEBROWSER_BASE_URL || "/filebrowser"),
+    adminUsername: resolveFilebrowserAdminUsername(env),
     sources: resolveFilebrowserSources(env),
   };
 }
@@ -123,6 +158,7 @@ function buildFilebrowserConfigYaml(options) {
   }
 
   lines.push("auth:");
+  lines.push(`  adminUsername: ${yamlQuote(options.adminUsername)}`);
   lines.push("  methods:");
   lines.push("    proxy:");
   lines.push("      enabled: true");
@@ -132,8 +168,9 @@ function buildFilebrowserConfigYaml(options) {
   lines.push("      enabled: false");
   lines.push("userDefaults:");
   lines.push("  permissions:");
-  lines.push("    api: true");
-  lines.push("    admin: true");
+  for (const [permission, enabled] of Object.entries(FILEBROWSER_FULL_PERMISSIONS)) {
+    lines.push(`    ${permission}: ${enabled ? "true" : "false"}`);
+  }
 
   return `${lines.join("\n")}\n`;
 }
@@ -169,9 +206,13 @@ if (require.main === module) {
 module.exports = {
   buildFilebrowserConfigYaml,
   configureFilebrowser,
+  FILEBROWSER_FULL_PERMISSIONS,
+  FILEBROWSER_PROXY_USERNAME_PREFIX,
   resolveFilebrowserSources,
+  resolveFilebrowserAdminUsername,
   normalizeBaseUrl,
   parsePort,
   resolveFilebrowserOptions,
+  withFilebrowserProxyPrefix,
   yamlQuote,
 };

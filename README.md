@@ -529,7 +529,7 @@ Separate, fully integrated terminal sessions for each application with multiple 
 <summary><strong>Quantum Filebrowser</strong></summary>
 
 A secure file browser for managing documents and adding secrets securely.
-_(User write permissions are **OFF by default** for security. Turn them on in settings to upload.)_
+_(Proxy-authenticated FileBrowser users are provisioned with full operator permissions automatically, including upload, edit, delete, sharing, API, and realtime access.)_
 
 <p align="center">
   <img src="images/Filebrowser.png" alt="Filebrowser — secure file management for agent fleet" width="800">
@@ -553,7 +553,7 @@ Your entire agent farm is secured by Basic Auth, with robust device pairing for 
 ## 💡 Good to Know
 
 - **Terminal Quirks:** The integrated terminal has multiple modes for scrolling, copying, and pasting. Read the help modal inside the terminal for full details.
-- **Filebrowser Permissions:** User write permissions are **OFF by default** for security. You must manually turn them on in the Filebrowser settings to upload documents or edit files.
+- **Filebrowser Permissions:** Proxy-authenticated FileBrowser users receive full operator permissions automatically when they first sign in, and existing proxy users are reconciled on startup so no manual settings changes are required.
 - **Hardware:** For an optimal experience balancing performance and cost, a **Mac Mini M4 (16 GB RAM)** runs about **6 to 8 agents comfortably**.
 
 ---

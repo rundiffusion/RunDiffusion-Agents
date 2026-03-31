@@ -105,7 +105,7 @@ Shared infrastructure defaults for the host stack.
 | `direct` | `0.0.0.0` or interface IP | Public host with your own DNS + HTTPS |
 | `cloudflare` | `127.0.0.1` (tunnel publishes) | Published through Cloudflare Tunnel |
 
-`PUBLIC_URL_SCHEME` controls the browser origin written into newly created tenant env files. The generated `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` value uses the exact browser origin, including `TRAEFIK_HTTP_PORT` when Traefik is not on `80` or `443`. Leave it blank to auto-pick `https` for Cloudflare and `http` for local/direct installs.
+`PUBLIC_URL_SCHEME` controls the browser origin written into newly created tenant env files. The generated `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` value uses the exact browser origin. For `local` and `direct`, that includes `TRAEFIK_HTTP_PORT` when Traefik is not on `80` or `443`. For `cloudflare`, use the published tunnel origin, which is typically plain `https://tenant.example.com` without the local Traefik port. Leave it blank to auto-pick `https` for Cloudflare and `http` for local/direct installs.
 
 ---
 
@@ -197,7 +197,7 @@ Tenant-specific identity, auth, and provider keys. Keep tenant env files outside
 | `OPENROUTER_API_KEY` | Tenant-specific OpenRouter key |
 | `TAILSCALE_ENABLED` | Per-tenant Tailscale toggle |
 
-> **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port. Example: `http://tenant-a.example.com:38080` when Traefik is on port `38080`.
+> **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port when the browser actually uses a non-default port. Example: `http://tenant-a.example.com:38080` when Traefik is exposed directly on port `38080`. In Cloudflare Tunnel mode, this is usually just `https://tenant-a.example.com`.
 
 ---
 

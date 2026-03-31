@@ -122,6 +122,8 @@ FileBrowser Quantum exposes these user-facing roots:
 | Tool Files | `/data/tool-files` (aggregate: `.hermes`, `.codex`, `.claude`, `.gemini`, `.openclaw`, `.filebrowser`) |
 | Container App | `/app` |
 
+Proxy-authenticated FileBrowser users are provisioned with full operator permissions automatically, and existing `filebrowser-*` users are reconciled on startup.
+
 ### Terminal Behavior
 
 - Each route logs into a separate shared `tmux` session
