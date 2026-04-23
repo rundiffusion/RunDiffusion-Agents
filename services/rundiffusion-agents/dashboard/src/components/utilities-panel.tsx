@@ -214,7 +214,7 @@ export function UtilitiesPanel({
                   ) : (
                     <Wrench className="h-4 w-4" />
                   )}
-                  Restart OpenClaw
+                  Restart Agent
                 </Button>
               </div>
             </UtilityCard>

@@ -80,7 +80,7 @@ export function ToolFrame({ brandName, tool, openclawAccessMode, busyActionId, o
                 disabled={isRestartingOpenClaw}
               >
                 <Wrench className="h-4 w-4" />
-                Restart OpenClaw
+                Restart Agent
               </Button>
             ) : null}
             <Button

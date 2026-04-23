@@ -175,7 +175,7 @@ function buildDashboardConfig(env = process.env) {
       },
       {
         id: "restart-openclaw",
-        label: "Restart OpenClaw",
+        label: "Restart Agent",
         description: "Run the managed restart helper and wait for health to recover.",
       },
     ],
