@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/deploy.sh [--tenant slug] [--shared-only] [--openclaw-version version]
+Usage: ./scripts/deploy.sh [--tenant slug] [--shared-only] [--openclaw-version version] [--hermes-version ref]
 
 Deploys shared infrastructure and then all enabled tenants unless a specific tenant is selected.
 EOF
@@ -16,6 +16,7 @@ EOF
 selected_slug=""
 shared_only=0
 openclaw_version_override=""
+hermes_version_override=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -25,6 +26,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --openclaw-version)
       openclaw_version_override="$2"
+      shift 2
+      ;;
+    --hermes-version)
+      hermes_version_override="$2"
       shift 2
       ;;
     --shared-only)
@@ -46,6 +51,10 @@ require_command docker
 if [[ -n "${openclaw_version_override}" ]]; then
   validate_openclaw_version "${openclaw_version_override}"
   export OPENCLAW_VERSION_OVERRIDE="${openclaw_version_override}"
+fi
+
+if [[ -n "${hermes_version_override}" ]]; then
+  export HERMES_VERSION_OVERRIDE="${hermes_version_override}"
 fi
 
 docker info >/dev/null 2>&1 || die "Docker Desktop is not running"
@@ -96,7 +105,7 @@ release_image_ref_for_version() {
 
 ensure_image_for_tenant() {
   local slug="$1"
-  local image_ref image_reported_openclaw_version openclaw_source_tag target_openclaw_version resolved_image_openclaw_version version_source
+  local image_ref image_reported_openclaw_version openclaw_source_tag target_openclaw_version target_hermes_ref resolved_image_openclaw_version version_source hermes_build_args
 
   target_openclaw_version="$(resolved_openclaw_version "${slug}")"
   version_source="$(resolved_openclaw_version_source "${slug}")"
@@ -115,10 +124,16 @@ ensure_image_for_tenant() {
   case "${DEPLOY_MODE}" in
     build)
       openclaw_source_tag="$(openclaw_source_tag_for_version "${target_openclaw_version}")"
-      note "Building ${image_ref} with OpenClaw ${target_openclaw_version}" >&2
+      target_hermes_ref="$(resolved_hermes_ref)"
+      note "Building ${image_ref} with OpenClaw ${target_openclaw_version}, Hermes ${target_hermes_ref}" >&2
+      hermes_build_args=()
+      if [[ -n "${target_hermes_ref}" ]]; then
+        hermes_build_args+=(--build-arg "HERMES_REF=${target_hermes_ref}")
+      fi
       docker buildx build --load \
         --build-arg "OPENCLAW_VERSION=${target_openclaw_version}" \
         --build-arg "OPENCLAW_SOURCE_TAG=${openclaw_source_tag}" \
+        "${hermes_build_args[@]}" \
         -t "${image_ref}" \
         -f "${REPO_ROOT}/services/rundiffusion-agents/Dockerfile" \
         "${REPO_ROOT}/services/rundiffusion-agents"
