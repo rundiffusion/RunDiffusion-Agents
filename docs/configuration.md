@@ -198,6 +198,7 @@ Tenant-specific identity, auth, and provider keys. Keep tenant env files outside
 | `HERMES_OPENAI_BASE_URL` | Override Hermes's OpenAI-compatible endpoint (see [Hermes Provider Configuration](#hermes-provider-configuration)) |
 | `HERMES_MODEL_NAME` | Override Hermes's default model id |
 | `HERMES_PROVIDER_PASSTHROUGH` | `1` to let Hermes manage its own provider config via `hermes model` |
+| `HERMES_GATEWAY_ENABLED` | `1` to run `hermes gateway` for messaging platforms + cron scheduling |
 | `TAILSCALE_ENABLED` | Per-tenant Tailscale toggle |
 
 > **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port when the browser actually uses a non-default port. Example: `http://tenant-a.example.com:38080` when Traefik is exposed directly on port `38080`. In Cloudflare Tunnel mode, this is usually just `https://tenant-a.example.com`.
@@ -281,6 +282,14 @@ Use passthrough when:
 - The operator, not the deploy pipeline, should own model choice for this tenant.
 
 Passthrough is per-tenant. Different tenants on the same host can mix modes freely.
+
+### Messaging platforms + cron (HERMES_GATEWAY_ENABLED)
+
+Hermes ships first-class integrations for Telegram, Discord, Slack, WhatsApp, and a cron scheduler. These run inside a long-lived `hermes gateway` daemon. The tenant's terminal (`/hermes`) only hosts the interactive chat — without the gateway daemon, platform tokens configured in `/data/.hermes/.env` or via `hermes model` are inert and nothing flows in or out of those channels.
+
+Set `HERMES_GATEWAY_ENABLED=1` in the tenant env to have the openclaw-gateway auto-launch `hermes gateway run --replace` in its own tmux session on container start. The `messaging` Hermes extra is bundled in the image, so Telegram/Discord/Slack adapters are available out of the box. Platform-specific tokens (`TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `SLACK_BOT_TOKEN`, etc.) still need to be present — either in the tenant env for container-wide env, or set interactively via `hermes model` inside the `/hermes` terminal.
+
+Leave `HERMES_GATEWAY_ENABLED=0` (the default) if you are using Hermes purely as a terminal-attached chat agent.
 
 ---
 
