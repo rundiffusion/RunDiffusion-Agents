@@ -127,7 +127,9 @@ RUN set -eux; \
   /opt/hermes-venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel; \
   cd /opt/hermes-src; \
   /opt/hermes-venv/bin/pip install --no-cache-dir -e ".[cli,pty,mcp]"; \
-  /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  if [ -d ./mini-swe-agent ]; then \
+    /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  fi; \
   ln -sf /opt/hermes-venv/bin/hermes /usr/local/bin/hermes; \
   /opt/hermes-venv/bin/hermes version
 
