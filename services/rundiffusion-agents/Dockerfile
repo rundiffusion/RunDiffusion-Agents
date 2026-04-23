@@ -22,7 +22,7 @@ RUN set -eux; \
 FROM node:22-bookworm-slim
 
 ARG TTYD_VERSION=1.7.7
-ARG HERMES_REF=v2026.3.12
+ARG HERMES_REF=v2026.4.16
 ARG OPENCLAW_VERSION=2026.3.24
 
 RUN apt-get update \
