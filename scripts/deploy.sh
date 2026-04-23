@@ -116,7 +116,7 @@ ensure_image_for_tenant() {
     build)
       openclaw_source_tag="$(openclaw_source_tag_for_version "${target_openclaw_version}")"
       note "Building ${image_ref} with OpenClaw ${target_openclaw_version}" >&2
-      docker buildx build --load --platform linux/arm64 \
+      docker buildx build --load \
         --build-arg "OPENCLAW_VERSION=${target_openclaw_version}" \
         --build-arg "OPENCLAW_SOURCE_TAG=${openclaw_source_tag}" \
         -t "${image_ref}" \
