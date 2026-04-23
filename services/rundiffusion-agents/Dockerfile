@@ -22,7 +22,7 @@ RUN set -eux; \
 FROM node:22-bookworm-slim
 
 ARG TTYD_VERSION=1.7.7
-ARG HERMES_REF=v2026.3.12
+ARG HERMES_REF=v2026.4.16
 ARG OPENCLAW_VERSION=2026.3.24
 
 RUN apt-get update \
@@ -126,8 +126,10 @@ RUN set -eux; \
   python3 -m venv /opt/hermes-venv; \
   /opt/hermes-venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel; \
   cd /opt/hermes-src; \
-  /opt/hermes-venv/bin/pip install --no-cache-dir -e ".[cli,pty,mcp]"; \
-  /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  /opt/hermes-venv/bin/pip install --no-cache-dir -e ".[cli,pty,mcp,messaging,cron]"; \
+  if [ -d ./mini-swe-agent ]; then \
+    /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  fi; \
   ln -sf /opt/hermes-venv/bin/hermes /usr/local/bin/hermes; \
   /opt/hermes-venv/bin/hermes version
 
@@ -141,9 +143,9 @@ RUN cd /app/dashboard && npm install
 COPY dashboard /app/dashboard
 RUN cd /app/dashboard && npm run build
 
-COPY entrypoint.sh launch_hermes_terminal.sh launch_codex_terminal.sh launch_claude_terminal.sh launch_gemini_terminal.sh bootstrap_skills.sh reset_openclaw_state.sh capture_openclaw_baseline.sh restart_openclaw_gateway.sh brew-wrapper.sh openclaw-wrapper.sh openclaw_runtime.js configure_filebrowser.js reconcile_filebrowser_permissions.js nginx.template.conf reconcile_openclaw_state.js print_reconcile_summary.js check_reconcile_status.js check_reconcile_status.sh approve_device.js dashboard_server.js ./
+COPY entrypoint.sh launch_hermes_terminal.sh launch_hermes_gateway.sh launch_codex_terminal.sh launch_claude_terminal.sh launch_gemini_terminal.sh bootstrap_skills.sh reset_openclaw_state.sh capture_openclaw_baseline.sh restart_openclaw_gateway.sh brew-wrapper.sh openclaw-wrapper.sh openclaw_runtime.js configure_filebrowser.js reconcile_filebrowser_permissions.js nginx.template.conf reconcile_openclaw_state.js print_reconcile_summary.js check_reconcile_status.js check_reconcile_status.sh approve_device.js dashboard_server.js ./
 COPY lib /app/lib
-RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_codex_terminal.sh /app/launch_claude_terminal.sh /app/launch_gemini_terminal.sh /app/bootstrap_skills.sh /app/reset_openclaw_state.sh /app/capture_openclaw_baseline.sh /app/restart_openclaw_gateway.sh /app/brew-wrapper.sh /app/openclaw-wrapper.sh /app/openclaw_runtime.js /app/print_reconcile_summary.js /app/check_reconcile_status.js /app/check_reconcile_status.sh /app/approve_device.js /app/dashboard_server.js \
+RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_hermes_gateway.sh /app/launch_codex_terminal.sh /app/launch_claude_terminal.sh /app/launch_gemini_terminal.sh /app/bootstrap_skills.sh /app/reset_openclaw_state.sh /app/capture_openclaw_baseline.sh /app/restart_openclaw_gateway.sh /app/brew-wrapper.sh /app/openclaw-wrapper.sh /app/openclaw_runtime.js /app/print_reconcile_summary.js /app/check_reconcile_status.js /app/check_reconcile_status.sh /app/approve_device.js /app/dashboard_server.js \
   && ln -sf /app/approve_device.js /usr/local/bin/approve-device \
   && ln -sf /app/reset_openclaw_state.sh /usr/local/bin/reset-openclaw-state \
   && ln -sf /app/capture_openclaw_baseline.sh /usr/local/bin/capture-openclaw-baseline \

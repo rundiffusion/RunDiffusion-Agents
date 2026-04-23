@@ -8,6 +8,7 @@ HERMES_OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL:-https://generativelanguage.goo
 HERMES_MODEL_NAME="${HERMES_MODEL_NAME:-gemini-3-flash-preview}"
 HERMES_OPENAI_API_KEY="${HERMES_OPENAI_API_KEY:-${GEMINI_API_KEY:-}}"
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
+HERMES_PROVIDER_PASSTHROUGH="${HERMES_PROVIDER_PASSTHROUGH:-0}"
 MANAGED_CONFIG_HEADER="# Managed by openclaw-gateway."
 MANAGED_CONFIG_PATH="${HERMES_HOME}/config.yaml"
 RUNTIME_HOME="${HOME:-/root}"
@@ -28,8 +29,9 @@ mkdir -p \
 mkdir -p "${RUNTIME_HOME}"
 ln -sfn "${HERMES_HOME}" "${RUNTIME_HOME}/.hermes"
 
-if [[ ! -f "${MANAGED_CONFIG_PATH}" ]] || { [ -f "${MANAGED_CONFIG_PATH}" ] && rg -q "^${MANAGED_CONFIG_HEADER}$" "${MANAGED_CONFIG_PATH}" && ! rg -q "^model:$" "${MANAGED_CONFIG_PATH}"; }; then
-  cat > "${MANAGED_CONFIG_PATH}" <<EOF
+if [[ "${HERMES_PROVIDER_PASSTHROUGH}" != "1" ]]; then
+  if [[ ! -f "${MANAGED_CONFIG_PATH}" ]] || { [ -f "${MANAGED_CONFIG_PATH}" ] && rg -q "^${MANAGED_CONFIG_HEADER}$" "${MANAGED_CONFIG_PATH}" && ! rg -q "^model:$" "${MANAGED_CONFIG_PATH}"; }; then
+    cat > "${MANAGED_CONFIG_PATH}" <<EOF
 # Managed by openclaw-gateway.
 # Use the Hermes CLI inside the terminal to inspect or update this file.
 model:
@@ -45,10 +47,10 @@ auxiliary:
     provider: "auto"
     model: "${HERMES_MODEL_NAME}"
 EOF
-fi
+  fi
 
-if [[ ! -f "${HERMES_HOME}/.env" ]]; then
-  cat > "${HERMES_HOME}/.env" <<EOF
+  if [[ ! -f "${HERMES_HOME}/.env" ]]; then
+    cat > "${HERMES_HOME}/.env" <<EOF
 # Managed by openclaw-gateway.
 # Secrets stay in the container environment by default and do not need to be
 # copied here unless you intentionally reconfigure Hermes from inside the CLI.
@@ -59,7 +61,8 @@ LLM_MODEL=${HERMES_MODEL_NAME}
 TERMINAL_ENV=local
 TERMINAL_CWD=${HERMES_WORKSPACE_DIR}
 EOF
-  chmod 600 "${HERMES_HOME}/.env"
+    chmod 600 "${HERMES_HOME}/.env"
+  fi
 fi
 
 mkdir -p "${HERMES_WORKSPACE_DIR}"
@@ -70,20 +73,23 @@ if ! command -v hermes >/dev/null 2>&1; then
   exec /bin/bash
 fi
 
-if [[ -z "${HERMES_OPENAI_API_KEY}" ]]; then
+if [[ "${HERMES_PROVIDER_PASSTHROUGH}" != "1" && -z "${HERMES_OPENAI_API_KEY}" ]]; then
   echo "[hermes] No API key found for Hermes. Set HERMES_OPENAI_API_KEY or GEMINI_API_KEY."
   echo "[hermes] Opening a shell instead."
   exec /bin/bash
 fi
 
 export HERMES_HOME
-export OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL}"
-export OPENAI_API_KEY="${HERMES_OPENAI_API_KEY}"
 export OPENROUTER_API_KEY
-export HERMES_MODEL="${HERMES_MODEL_NAME}"
-export LLM_MODEL="${HERMES_MODEL_NAME}"
 export TERMINAL_ENV=local
 export TERMINAL_CWD="${HERMES_WORKSPACE_DIR}"
+
+if [[ "${HERMES_PROVIDER_PASSTHROUGH}" != "1" ]]; then
+  export OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL}"
+  export OPENAI_API_KEY="${HERMES_OPENAI_API_KEY}"
+  export HERMES_MODEL="${HERMES_MODEL_NAME}"
+  export LLM_MODEL="${HERMES_MODEL_NAME}"
+fi
 
 echo "[hermes] Starting Hermes in ${HERMES_WORKSPACE_DIR}"
 echo "[hermes] HERMES_HOME=${HERMES_HOME}"

@@ -195,6 +195,10 @@ Tenant-specific identity, auth, and provider keys. Keep tenant env files outside
 | `TERMINAL_BASIC_AUTH_PASSWORD` | Dashboard/terminal auth password |
 | `GEMINI_API_KEY` | Tenant-specific Gemini key (if not managed via control-plane) |
 | `OPENROUTER_API_KEY` | Tenant-specific OpenRouter key |
+| `HERMES_OPENAI_BASE_URL` | Override Hermes's OpenAI-compatible endpoint (see [Hermes Provider Configuration](#hermes-provider-configuration)) |
+| `HERMES_MODEL_NAME` | Override Hermes's default model id |
+| `HERMES_PROVIDER_PASSTHROUGH` | `1` to let Hermes manage its own provider config via `hermes model` |
+| `HERMES_GATEWAY_ENABLED` | `1` to run `hermes gateway` for messaging platforms + cron scheduling |
 | `TAILSCALE_ENABLED` | Per-tenant Tailscale toggle |
 
 > **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port when the browser actually uses a non-default port. Example: `http://tenant-a.example.com:38080` when Traefik is exposed directly on port `38080`. In Cloudflare Tunnel mode, this is usually just `https://tenant-a.example.com`.
@@ -231,6 +235,61 @@ Maps tenant slugs to hostnames, env files, and data roots. Determines which tena
 The example file ships with `tenants: []` and is intentionally public-safe. The local `tenants.yml` is ignored so operators can keep real tenant metadata without committing it.
 
 Real tenant secrets belong in external tenant env files, not in the registry.
+
+---
+
+## Hermes Provider Configuration
+
+Hermes Agent is an OpenAI-compatible chat-completions client. The gateway supports three deployment modes for it; pick one per tenant.
+
+### Mode 1 — Gemini default (zero-config)
+
+Set `HERMES_OPENAI_API_KEY` (or `GEMINI_API_KEY`) and leave `HERMES_OPENAI_BASE_URL` / `HERMES_MODEL_NAME` blank. The gateway points Hermes at Google's OpenAI-compatible endpoint (`https://generativelanguage.googleapis.com/v1beta/openai/`) using `gemini-3-flash-preview`. This is the pre-existing default; no action needed to keep it.
+
+### Mode 2 — Any OpenAI-compatible provider
+
+Set all three:
+
+| Variable | Example |
+| --- | --- |
+| `HERMES_OPENAI_BASE_URL` | `https://api.moonshot.ai/v1` |
+| `HERMES_MODEL_NAME` | `kimi-k2.6` |
+| `HERMES_OPENAI_API_KEY` | your Moonshot API key |
+
+Works with any provider that implements the OpenAI Chat-Completions API — Moonshot/Kimi, DeepSeek, Together, Fireworks, OpenRouter used as a proxy, self-hosted vLLM/llama.cpp servers, etc. The gateway writes the managed `/data/.hermes/config.yaml` and `/data/.hermes/.env` so Hermes launches with the provider already configured.
+
+### Mode 3 — Native Hermes provider picker (passthrough)
+
+Set `HERMES_PROVIDER_PASSTHROUGH=1`. In this mode the gateway stays out of Hermes's provider config entirely — it does not write `config.yaml` or `.env`, and does not export provider-related env vars before launching Hermes. The operator selects the provider and enters credentials via `hermes model` inside the tenant terminal, using Hermes's full native picker:
+
+```
+1. Custom endpoint (enter URL manually)
+2. OpenRouter (100+ models, pay-per-use)
+3. Nous Portal (Nous Research subscription)
+4. OpenAI Codex
+5. Z.AI / GLM (Zhipu AI direct API)
+6. Kimi / Moonshot (Moonshot AI direct API)
+7. MiniMax (global direct API)
+8. MiniMax China (domestic direct API)
+```
+
+(Exact list tracks the installed Hermes version.)
+
+Use passthrough when:
+
+- You want access to providers the gateway's OpenAI-compatible path does not cover natively (e.g. Nous Portal OAuth).
+- You want the provider list to update automatically with Hermes releases instead of being pinned to whatever endpoints the gateway knows about.
+- The operator, not the deploy pipeline, should own model choice for this tenant.
+
+Passthrough is per-tenant. Different tenants on the same host can mix modes freely.
+
+### Messaging platforms + cron (HERMES_GATEWAY_ENABLED)
+
+Hermes ships first-class integrations for Telegram, Discord, Slack, WhatsApp, and a cron scheduler. These run inside a long-lived `hermes gateway` daemon. The tenant's terminal (`/hermes`) only hosts the interactive chat — without the gateway daemon, platform tokens configured in `/data/.hermes/.env` or via `hermes model` are inert and nothing flows in or out of those channels.
+
+Set `HERMES_GATEWAY_ENABLED=1` in the tenant env to have the openclaw-gateway auto-launch `hermes gateway run --replace` in its own tmux session on container start. The `messaging` Hermes extra is bundled in the image, so Telegram/Discord/Slack adapters are available out of the box. Platform-specific tokens (`TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `SLACK_BOT_TOKEN`, etc.) still need to be present — either in the tenant env for container-wide env, or set interactively via `hermes model` inside the `/hermes` terminal.
+
+Leave `HERMES_GATEWAY_ENABLED=0` (the default) if you are using Hermes purely as a terminal-attached chat agent.
 
 ---
 

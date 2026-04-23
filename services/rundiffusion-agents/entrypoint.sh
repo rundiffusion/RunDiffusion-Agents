@@ -45,6 +45,8 @@ HERMES_WORKSPACE_DIR="${HERMES_WORKSPACE_DIR:-/data/workspaces/hermes}"
 HERMES_OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}"
 HERMES_MODEL_NAME="${HERMES_MODEL_NAME:-gemini-3-flash-preview}"
 HERMES_OPENAI_API_KEY="${HERMES_OPENAI_API_KEY:-${GEMINI_API_KEY:-}}"
+HERMES_PROVIDER_PASSTHROUGH="${HERMES_PROVIDER_PASSTHROUGH:-0}"
+HERMES_GATEWAY_ENABLED="${HERMES_GATEWAY_ENABLED:-0}"
 CODEX_ENABLED="${CODEX_ENABLED:-1}"
 CODEX_INTERNAL_PORT="${CODEX_INTERNAL_PORT:-8091}"
 CODEX_BASE_URL="${CODEX_BASE_URL:-/codex}"
@@ -222,6 +224,8 @@ export HERMES_WORKSPACE_DIR
 export HERMES_OPENAI_BASE_URL
 export HERMES_MODEL_NAME
 export HERMES_OPENAI_API_KEY
+export HERMES_PROVIDER_PASSTHROUGH
+export HERMES_GATEWAY_ENABLED
 export CODEX_ENABLED
 export CODEX_BASE_URL
 export CODEX_INTERNAL_PORT
@@ -345,6 +349,10 @@ terminal_enabled() {
 
 hermes_enabled() {
   is_true "${HERMES_ENABLED}"
+}
+
+hermes_gateway_enabled() {
+  hermes_enabled && is_true "${HERMES_GATEWAY_ENABLED}"
 }
 
 codex_enabled() {
@@ -845,6 +853,14 @@ ensure_hermes_session() {
   ensure_tmux_session "Hermes" "${HERMES_SESSION_NAME}" "${HERMES_WORKSPACE_DIR}" "/app/launch_hermes_terminal.sh"
 }
 
+ensure_hermes_gateway_session() {
+  if ! hermes_gateway_enabled; then
+    return 0
+  fi
+
+  ensure_tmux_session "Hermes Gateway" "hermes-gateway" "${HERMES_WORKSPACE_DIR}" "/app/launch_hermes_gateway.sh"
+}
+
 ensure_codex_session() {
   if ! codex_enabled; then
     return 0
@@ -967,6 +983,7 @@ write_nginx_config
 configure_filebrowser
 ensure_terminal_session
 ensure_hermes_session
+ensure_hermes_gateway_session
 ensure_codex_session
 ensure_claude_session
 ensure_gemini_session
