@@ -22,7 +22,7 @@ RUN set -eux; \
 FROM node:22-bookworm-slim
 
 ARG TTYD_VERSION=1.7.7
-ARG HERMES_REF=v2026.3.12
+ARG HERMES_REF=v2026.4.16
 ARG OPENCLAW_VERSION=2026.3.24
 
 RUN apt-get update \
@@ -127,7 +127,9 @@ RUN set -eux; \
   /opt/hermes-venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel; \
   cd /opt/hermes-src; \
   /opt/hermes-venv/bin/pip install --no-cache-dir -e ".[cli,pty,mcp]"; \
-  /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  if [ -d ./mini-swe-agent ]; then \
+    /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  fi; \
   ln -sf /opt/hermes-venv/bin/hermes /usr/local/bin/hermes; \
   /opt/hermes-venv/bin/hermes version
 

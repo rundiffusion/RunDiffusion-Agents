@@ -73,6 +73,7 @@ load_root_env() {
   : "${AUTO_ROLLBACK:=1}"
   : "${IMAGE_REPOSITORY:=local/openclaw-gateway}"
   : "${OPENCLAW_VERSION:=}"
+  : "${HERMES_VERSION:=}"
   : "${GATEWAY_IMAGE_TAG:=}"
   : "${TENANT_MEMORY_RESERVATION:=1536m}"
   : "${TENANT_MEMORY_LIMIT:=3072m}"
@@ -97,7 +98,7 @@ load_root_env() {
   export CLOUDFLARE_HOSTNAME_MODE
   export CLOUDFLARE_TUNNEL_ID CLOUDFLARE_TUNNEL_CREDENTIALS_FILE
   export CLOUDFLARE_TUNNEL_METRICS CLOUDFLARED_LAUNCHD_LABEL
-  export DEPLOY_MODE AUTO_ROLLBACK IMAGE_REPOSITORY OPENCLAW_VERSION GATEWAY_IMAGE_TAG
+  export DEPLOY_MODE AUTO_ROLLBACK IMAGE_REPOSITORY OPENCLAW_VERSION HERMES_VERSION GATEWAY_IMAGE_TAG
   export TENANT_MEMORY_RESERVATION TENANT_MEMORY_LIMIT TENANT_PIDS_LIMIT TENANT_CONTAINER_SECURITY_PROFILE
   export MAX_ALWAYS_ON_TENANTS BACKUP_ROOT RELEASE_ROOT ROOT_ENV_FILE TENANT_REGISTRY_FILE TENANT_REGISTRY_EXAMPLE_FILE
 }
@@ -120,6 +121,22 @@ require_base_commands() {
 
 dockerfile_default_openclaw_version() {
   awk -F= '/^ARG OPENCLAW_VERSION=/{print $2; exit}' "${REPO_ROOT}/services/rundiffusion-agents/Dockerfile"
+}
+
+dockerfile_default_hermes_ref() {
+  awk -F= '/^ARG HERMES_REF=/{print $2; exit}' "${REPO_ROOT}/services/rundiffusion-agents/Dockerfile"
+}
+
+resolved_hermes_ref() {
+  # Precedence: CLI --hermes-version, root env HERMES_VERSION, Dockerfile default.
+  # Emits the Hermes git ref to bake into the openclaw-gateway image.
+  if [[ -n "${HERMES_VERSION_OVERRIDE:-}" ]]; then
+    printf '%s\n' "${HERMES_VERSION_OVERRIDE}"
+  elif [[ -n "${HERMES_VERSION:-}" ]]; then
+    printf '%s\n' "${HERMES_VERSION}"
+  else
+    dockerfile_default_hermes_ref
+  fi
 }
 
 validate_openclaw_version() {
