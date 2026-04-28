@@ -21,6 +21,9 @@ shift
 
 load_root_env
 require_base_commands
+if ingress_uses_cloudflare; then
+  require_cloudflare_tunnel_config
+fi
 validate_slug "${slug}"
 tenant_exists "${slug}" || die "Unknown tenant: ${slug}"
 export SLUG="${slug}"

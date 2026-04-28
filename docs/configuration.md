@@ -137,6 +137,11 @@ tenants:
     agents:
       main:
         model: openai-codex/gpt-5.4
+    auth:
+      order:
+        openai-codex:
+          - openai-codex:adam@rundiffusion.com
+      pruneUnorderedProfiles: true
     providers:
       google:
         hydrateAuth: false
@@ -162,6 +167,8 @@ tenants:
 | `models.primary` | Default model selection |
 | `models.fallbacks` | Fallback model chain |
 | `agents.main.model` | Startup model for the built-in `main` agent |
+| `auth.order.<provider>` | Preferred existing OpenClaw auth profile IDs for that provider |
+| `auth.pruneUnorderedProfiles` | Remove stale OpenClaw auth profiles not referenced by the managed provider order |
 | `providers.google.hydrateAuth` | Google auth hydration behavior |
 | `routes.gemini.enabled` | Deploy-time Gemini route enable flag |
 
@@ -172,7 +179,12 @@ tenants:
 - Hostname or allowed origins
 - Tailscale settings
 - Non-`main` agents
-- Operator Codex auth/session/profile state
+- Codex CLI session files under `CODEX_HOME`
+- Provider OAuth credentials that do not already exist in `/data/.openclaw/.../auth-profiles.json`
+
+`auth.order` can point OpenClaw at an existing provider profile ID already stored on disk, and
+`auth.pruneUnorderedProfiles` can remove stale OpenClaw provider profiles. The control-plane does
+not mint new OAuth credentials or copy Codex CLI auth files into place for you.
 
 > **Host-only file:** This file is optional, should stay outside git on real hosts, and is applied at deploy time — not continuously on boot. Use the tracked example in `deploy/tenants/control-plane.example.yml` as the schema reference.
 

@@ -16,6 +16,11 @@ tenants:
     agents:
       main:
         model: openai-codex/gpt-5.4
+    auth:
+      order:
+        openai-codex:
+          - openai-codex:adam@rundiffusion.com
+      pruneUnorderedProfiles: false
     providers:
       google:
         hydrateAuth: false

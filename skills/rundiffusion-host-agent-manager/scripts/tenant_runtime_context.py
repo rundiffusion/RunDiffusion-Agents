@@ -11,6 +11,7 @@ from pathlib import Path
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _FIELD_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 _OPENCLAW_VERSION_RE = re.compile(r"^[0-9]{4}\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$")
+_SENSITIVE_KEY_RE = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTHKEY)", re.IGNORECASE)
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -82,6 +83,14 @@ def dockerfile_default_openclaw_version(repo_root: Path) -> str:
 
 def normalize_string(value: object) -> str:
     return str(value or "").strip()
+
+
+def display_env_value(key: str, value: str, show_secrets: bool) -> str:
+    if show_secrets or not value:
+        return value
+    if _SENSITIVE_KEY_RE.search(key):
+        return "<redacted>"
+    return value
 
 
 def load_yaml_via_yq(path: Path) -> dict | list | None:
@@ -216,6 +225,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Print derived runtime context for one tenant")
     parser.add_argument("slug", help="Tenant slug")
     parser.add_argument("--repo-root", help="Path to the repo root")
+    parser.add_argument(
+        "--show-secrets",
+        action="store_true",
+        help="Print credential-like tenant env values instead of redacting them.",
+    )
     args = parser.parse_args()
 
     repo_root = resolve_repo_root(args.repo_root)
@@ -291,7 +305,7 @@ def main() -> int:
     print("Tenant env values:")
     if tenant_env:
         for key in sorted(tenant_env):
-            print(f"  {key}={tenant_env[key]}")
+            print(f"  {key}={display_env_value(key, tenant_env[key], args.show_secrets)}")
     else:
         print("  <missing tenant env file or no keys>")
 

@@ -86,6 +86,9 @@ TERMINAL_ROUTE_AUTH_INCLUDE_PATH="${TERMINAL_ROUTE_AUTH_INCLUDE_PATH:-/tmp/openc
 OPENCLAW_PROXY_AUTH_USER_FILE_PATH="${OPENCLAW_PROXY_AUTH_USER_FILE_PATH:-/tmp/openclaw-gateway-openclaw-auth.htpasswd}"
 TERMINAL_PROXY_AUTH_USER_FILE_PATH="${TERMINAL_PROXY_AUTH_USER_FILE_PATH:-/tmp/openclaw-gateway-terminal-auth.htpasswd}"
 GATEWAY_READY_FILE="${GATEWAY_READY_FILE:-/tmp/openclaw-gateway-ready}"
+OPENCLAW_PREWARM_ENABLED="${OPENCLAW_PREWARM_ENABLED:-1}"
+OPENCLAW_PREWARM_TIMEOUT_SECONDS="${OPENCLAW_PREWARM_TIMEOUT_SECONDS:-35}"
+GATEWAY_RPC_READY_TIMEOUT_SECONDS="${GATEWAY_RPC_READY_TIMEOUT_SECONDS:-150}"
 GATEWAY_HEALTH_POLL_INTERVAL_SECONDS=2
 GATEWAY_HEALTH_READY_GRACE_SECONDS=15
 GATEWAY_HEALTH_FATAL_GRACE_SECONDS=120
@@ -359,6 +362,10 @@ gemini_enabled() {
   is_true "${GEMINI_ENABLED}"
 }
 
+gateway_prewarm_enabled() {
+  is_true "${OPENCLAW_PREWARM_ENABLED}"
+}
+
 tailscale_enabled() {
   is_true "${TAILSCALE_ENABLED}"
 }
@@ -468,6 +475,77 @@ start_gateway_health_monitor() {
     done
   ) &
   HEALTH_MONITOR_PID=$!
+}
+
+start_gateway_prewarm() {
+  if ! gateway_prewarm_enabled; then
+    echo "[entrypoint] Gateway prewarm disabled."
+    return 0
+  fi
+
+  local timeout_seconds
+  timeout_seconds="${OPENCLAW_PREWARM_TIMEOUT_SECONDS}"
+  if ! [[ "${timeout_seconds}" =~ ^[0-9]+$ ]] || ((timeout_seconds < 5)); then
+    timeout_seconds=35
+  fi
+
+  local call_timeout_ms
+  call_timeout_ms=$((timeout_seconds * 1000))
+
+  local methods=(
+    "health"
+    "models.list"
+    "node.list"
+    "device.pair.list"
+  )
+  local method
+
+  echo "[entrypoint] Starting gateway prewarm (timeout ${timeout_seconds}s)."
+  local has_timeout=0
+  if command -v timeout >/dev/null 2>&1; then
+    has_timeout=1
+  fi
+
+  for method in "${methods[@]}"; do
+    if ((has_timeout == 1)); then
+      if timeout "${timeout_seconds}" openclaw gateway call --timeout "${call_timeout_ms}" "${method}" >/dev/null 2>&1; then
+        echo "[entrypoint] Prewarm OK: ${method}"
+      else
+        echo "[entrypoint] Prewarm timeout/failure: ${method}"
+      fi
+    elif openclaw gateway call --timeout "${call_timeout_ms}" "${method}" >/dev/null 2>&1; then
+      echo "[entrypoint] Prewarm OK: ${method}"
+    else
+      echo "[entrypoint] Prewarm timeout/failure: ${method}"
+    fi
+  done
+}
+
+wait_for_gateway_rpc_ready() {
+  local timeout_seconds="${GATEWAY_RPC_READY_TIMEOUT_SECONDS}"
+  if ! [[ "${timeout_seconds}" =~ ^[0-9]+$ ]] || ((timeout_seconds < 10)); then
+    timeout_seconds=150
+  fi
+
+  local started_at now elapsed
+  started_at="$(date +%s)"
+  echo "[entrypoint] Waiting for gateway RPC readiness (timeout ${timeout_seconds}s)."
+
+  while true; do
+    if openclaw gateway call --timeout 5000 health >/dev/null 2>&1; then
+      echo "[entrypoint] Gateway RPC is ready."
+      return 0
+    fi
+
+    now="$(date +%s)"
+    elapsed=$((now - started_at))
+    if ((elapsed >= timeout_seconds)); then
+      echo "[entrypoint] Timed out waiting for gateway RPC readiness (${timeout_seconds}s)."
+      exit 1
+    fi
+
+    sleep 2
+  done
 }
 
 validate_unique_operator_routes() {
@@ -935,6 +1013,7 @@ start_tailscale() {
 }
 
 reconcile_gateway_state() {
+  echo "[entrypoint] Hydrating OpenClaw gateway config and approved Codex model allowlist."
   node /app/reconcile_openclaw_state.js
 }
 
@@ -1088,9 +1167,11 @@ if gemini_enabled; then
   wait_for_tcp_listener "Gemini ttyd" "${GEMINI_INTERNAL_PORT}"
 fi
 
+wait_for_gateway_rpc_ready
 write_gateway_ready_file
 echo "[entrypoint] Gateway readiness file written to ${GATEWAY_READY_FILE}"
 start_gateway_health_monitor
+start_gateway_prewarm
 
 echo "[entrypoint] Starting nginx proxy on public port ${PORT}"
 nginx -c "${NGINX_CONFIG_PATH}" -g 'daemon off;' &

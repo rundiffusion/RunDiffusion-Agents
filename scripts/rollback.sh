@@ -67,14 +67,12 @@ target_release="${release_id:-$(tenant_previous_release "${tenant_slug}")}"
 [[ -n "${target_release}" ]] || die "No rollback target is available for ${tenant_slug}"
 
 release_dir="$(tenant_release_dir "${tenant_slug}" "${target_release}")"
-env_snapshot="${release_dir}/tenant.env"
 image_ref="$(tenant_release_image_ref "${tenant_slug}" "${target_release}")"
 
-require_file "${env_snapshot}"
 [[ -n "${image_ref}" ]] || die "Missing image reference for ${tenant_slug} release ${target_release}"
 
 ensure_tenant_layout "${tenant_slug}"
-cp "${env_snapshot}" "$(tenant_env_file "${tenant_slug}")"
+restore_tenant_env_snapshots "${tenant_slug}" "${release_dir}"
 export OPENCLAW_IMAGE="${image_ref}"
 render_traefik_dynamic_config >/dev/null
 

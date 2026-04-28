@@ -1,0 +1,108 @@
+--- a/ui/src/ui/app-gateway.sessions.node.test.ts
++++ b/ui/src/ui/app-gateway.sessions.node.test.ts
+@@ -142,6 +142,22 @@
+     expect(loadChatHistoryMock).toHaveBeenCalledWith(host);
+   });
+ 
++  it("defers transcript reloads for the active session while a run is still in flight", () => {
++    loadChatHistoryMock.mockReset();
++    const host = createHost();
++    host.sessionKey = "agent:qa:main";
++    host.chatRunId = "run-123";
++
++    handleGatewayEvent(host, {
++      type: "event",
++      event: "session.message",
++      payload: { sessionKey: "agent:qa:main" },
++      seq: 1,
++    });
++
++    expect(loadChatHistoryMock).not.toHaveBeenCalled();
++  });
++
+   it("ignores transcript updates for other sessions", () => {
+     loadChatHistoryMock.mockReset();
+     const host = createHost();
+--- a/ui/src/ui/app-gateway.ts
++++ b/ui/src/ui/app-gateway.ts
+@@ -414,10 +414,15 @@
+   }
+ }
+ 
+-function handleSessionMessageGatewayEvent(
+-  host: GatewayHost,
+-  payload: { sessionKey?: string } | undefined,
+-) {
++function handleSessionMessageGatewayEvent(host: GatewayHost, payload: { sessionKey?: string } | undefined) {
++  // While the current run is active, session.message can arrive before the
++  // optimistic user message is persisted to history. Reloading immediately
++  // would wipe the visible optimistic message until the final event lands.
++  // Final chat events already trigger the history refresh paths we need.
++  if (host.chatRunId) {
++    return;
++  }
++
+   const sessionKey = payload?.sessionKey?.trim();
+   if (!sessionKey || sessionKey !== host.sessionKey) {
+     return;
+--- a/ui/src/ui/views/chat.test.ts
++++ b/ui/src/ui/views/chat.test.ts
+@@ -283,6 +283,38 @@
+     expect(container.textContent).toContain("Not saved to chat history");
+     expect(container.textContent).toContain("Saved transcript message");
+     expect(container.querySelectorAll(".chat-side-result")).toHaveLength(1);
++  });
++
++  it("keeps the optimistic user message visible and shows the reading indicator during tool-first runs", () => {
++    const container = document.createElement("div");
++    render(
++      renderChat(
++        createProps({
++          canAbort: true,
++          messages: [
++            {
++              role: "user",
++              content: [{ type: "text", text: "Please inspect this workspace." }],
++              timestamp: 1,
++            },
++          ],
++          stream: null,
++          toolMessages: [
++            {
++              role: "toolresult",
++              toolCallId: "tool-1",
++              name: "read_file",
++              content: [{ type: "text", text: "Opened /tmp/example.txt" }],
++              timestamp: 2,
++            },
++          ],
++        }),
++      ),
++      container,
++    );
++
++    expect(container.textContent).toContain("Please inspect this workspace.");
++    expect(container.querySelector(".chat-reading-indicator")).not.toBeNull();
+   });
+ 
+   it("dismisses BTW side results from the dismiss button", () => {
+--- a/ui/src/ui/views/chat.ts
++++ b/ui/src/ui/views/chat.ts
+@@ -1826,13 +1826,14 @@
+     }
+   }
+ 
+-  if (props.stream !== null) {
++  const streamText = props.stream ?? "";
++  if (props.stream !== null || props.canAbort) {
+     const key = `stream:${props.sessionKey}:${props.streamStartedAt ?? "live"}`;
+-    if (props.stream.trim().length > 0) {
++    if (streamText.trim().length > 0) {
+       items.push({
+         kind: "stream",
+         key,
+-        text: props.stream,
++        text: streamText,
+         startedAt: props.streamStartedAt ?? Date.now(),
+       });
+     } else {

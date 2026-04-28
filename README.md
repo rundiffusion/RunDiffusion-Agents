@@ -193,8 +193,6 @@ and return the tenant URLs and credentials.
 
 Both skills **inspect first, ask second** — they check the working directory and repo state, infer your intent when possible, and only ask clarifying questions when the state is ambiguous.
 
----
-
 <details>
 <summary><h3>Manual Setup</h3></summary>
 

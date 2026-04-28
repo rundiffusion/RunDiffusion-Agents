@@ -97,6 +97,7 @@ release_image_ref_for_version() {
 ensure_image_for_tenant() {
   local slug="$1"
   local image_ref image_reported_openclaw_version openclaw_source_tag target_openclaw_version resolved_image_openclaw_version version_source
+  local -a build_cmd
 
   target_openclaw_version="$(resolved_openclaw_version "${slug}")"
   version_source="$(resolved_openclaw_version_source "${slug}")"
@@ -116,9 +117,26 @@ ensure_image_for_tenant() {
     build)
       openclaw_source_tag="$(openclaw_source_tag_for_version "${target_openclaw_version}")"
       note "Building ${image_ref} with OpenClaw ${target_openclaw_version}" >&2
-      docker buildx build --load --platform linux/arm64 \
+      build_cmd=(docker)
+      if [[ -n "${DOCKER_BUILD_CONTEXT}" ]]; then
+        build_cmd+=(--context "${DOCKER_BUILD_CONTEXT}")
+      fi
+      build_cmd+=(buildx build)
+      if [[ -n "${DOCKER_BUILDER}" ]]; then
+        build_cmd+=(--builder "${DOCKER_BUILDER}")
+      fi
+      build_cmd+=(--load)
+      if [[ -n "${DOCKER_BUILD_PLATFORM}" ]]; then
+        build_cmd+=(--platform "${DOCKER_BUILD_PLATFORM}")
+      fi
+      "${build_cmd[@]}" \
         --build-arg "OPENCLAW_VERSION=${target_openclaw_version}" \
         --build-arg "OPENCLAW_SOURCE_TAG=${openclaw_source_tag}" \
+        --build-arg "CODEX_CLI_VERSION=${CODEX_CLI_VERSION}" \
+        --build-arg "CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}" \
+        --build-arg "GEMINI_CLI_VERSION=${GEMINI_CLI_VERSION}" \
+        --build-arg "HOMEBREW_INSTALL_REF=${HOMEBREW_INSTALL_REF}" \
+        --build-arg "HOMEBREW_BREW_REF=${HOMEBREW_BREW_REF}" \
         -t "${image_ref}" \
         -f "${REPO_ROOT}/services/rundiffusion-agents/Dockerfile" \
         "${REPO_ROOT}/services/rundiffusion-agents"

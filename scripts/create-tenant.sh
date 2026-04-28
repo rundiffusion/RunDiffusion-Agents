@@ -21,6 +21,9 @@ EOF
 load_root_env
 require_base_commands
 require_command openssl
+if ingress_uses_cloudflare; then
+  require_cloudflare_tunnel_config
+fi
 
 slug="$1"
 display_name="$2"
@@ -65,7 +68,6 @@ TAILSCALE_AUTHKEY=
 TAILSCALE_HOSTNAME=
 EOF
 chmod 600 "${env_file}"
-sync_tenant_control_plane_state "${slug}" >/dev/null
 
 export SLUG="${slug}"
 export DISPLAY_NAME="${display_name}"
@@ -85,6 +87,9 @@ yq eval -i '
     "env_file": strenv(ENV_FILE_VALUE)
   }]
 ' "${TENANT_REGISTRY_FILE}"
+
+ensure_tenant_layout "${slug}"
+sync_tenant_control_plane_state "${slug}" >/dev/null
 
 if ingress_uses_cloudflare; then
   render_cloudflared_config >/dev/null

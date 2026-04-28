@@ -38,21 +38,22 @@ done
 
 load_root_env
 require_base_commands
+if ingress_uses_cloudflare; then
+  require_cloudflare_tunnel_config
+fi
 validate_slug "${slug}"
 tenant_exists "${slug}" || die "Unknown tenant: ${slug}"
 export SLUG="${slug}"
 
-env_file="$(tenant_env_file "${slug}")"
-data_root="$(tenant_data_root "${slug}")"
-release_root="$(tenant_release_root "${slug}")"
-backup_root="$(tenant_backup_root "${slug}")"
-
 compose_tenant "${slug}" down --remove-orphans || true
-yq eval -i 'del(.tenants[] | select(.slug == strenv(SLUG)))' "${TENANT_REGISTRY_FILE}"
-
 if [[ "${purge}" -eq 1 ]]; then
-  rm -rf "${env_file}" "${data_root}" "${release_root}" "${backup_root}"
+  purge_tenant_state "${slug}"
+  if [[ -f "${TENANT_CONTROL_PLANE_CONFIG_PATH}" ]]; then
+    note "Control-plane config may still contain tenant ${slug}: ${TENANT_CONTROL_PLANE_CONFIG_PATH}"
+  fi
 fi
+
+yq eval -i 'del(.tenants[] | select(.slug == strenv(SLUG)))' "${TENANT_REGISTRY_FILE}"
 
 if ingress_uses_cloudflare; then
   render_cloudflared_config >/dev/null

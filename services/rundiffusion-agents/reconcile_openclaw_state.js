@@ -6,7 +6,6 @@ const path = require("node:path");
 const { normalizeString, safeReadJson, ensureObject, parseCsvList, envFlagEnabled } = require("./lib/utils");
 
 const LOOPBACK_TRUSTED_PROXIES = Object.freeze(["127.0.0.1", "::1"]);
-
 function resolveGatewayPort(env) {
   const portRaw = normalizeString(env.OPENCLAW_INTERNAL_PORT || "8081");
   return /^\d+$/.test(portRaw) ? Number(portRaw) : 8081;
@@ -131,12 +130,32 @@ function buildDefaultAcpxConfig(env) {
   };
 }
 
+function resolveApprovedCodexModels(env) {
+  const runtimeEnv = env || process.env;
+  const configuredModels = parseCsvList(runtimeEnv.OPENCLAW_APPROVED_CODEX_MODELS);
+  const sourceModels = configuredModels;
+  const approvedModels = [];
+  const seen = new Set();
+
+  for (const rawModel of sourceModels) {
+    const modelId = normalizeString(rawModel);
+    if (!modelId || seen.has(modelId)) {
+      continue;
+    }
+    seen.add(modelId);
+    approvedModels.push(modelId);
+  }
+
+  return approvedModels;
+}
+
 function sanitizeGlobalConfig(configDoc, env) {
   const runtimeEnv = env || process.env;
   const next = configDoc && typeof configDoc === "object" ? configDoc : {};
   const before = JSON.stringify(next);
   const defaultGateway = buildDefaultGatewayConfig(runtimeEnv);
   const defaultAcpx = buildDefaultAcpxConfig(runtimeEnv);
+  const approvedCodexModels = resolveApprovedCodexModels(runtimeEnv);
   const workspaceDir = normalizeString(
     runtimeEnv.OPENCLAW_WORKSPACE_DIR || "/data/workspaces/openclaw",
   );
@@ -144,6 +163,7 @@ function sanitizeGlobalConfig(configDoc, env) {
   next.gateway = ensureObject(next.gateway);
   next.agents = ensureObject(next.agents);
   next.agents.defaults = ensureObject(next.agents.defaults);
+  next.agents.defaults.models = ensureObject(next.agents.defaults.models);
   next.plugins = ensureObject(next.plugins);
   next.plugins.entries = ensureObject(next.plugins.entries);
 
@@ -192,6 +212,9 @@ function sanitizeGlobalConfig(configDoc, env) {
   next.gateway.controlUi = controlUi;
 
   next.agents.defaults.workspace = workspaceDir;
+  for (const modelId of approvedCodexModels) {
+    next.agents.defaults.models[modelId] = ensureObject(next.agents.defaults.models[modelId]);
+  }
 
   const acpxEntry = ensureObject(next.plugins.entries.acpx);
   acpxEntry.enabled = defaultAcpx.enabled;
@@ -250,6 +273,7 @@ function isGlobalConfigAligned(configDoc, env) {
   const acpxConfig = ensureObject(acpxEntry.config);
   const gatewayDefaults = buildDefaultGatewayConfig(runtimeEnv);
   const acpxDefaults = buildDefaultAcpxConfig(runtimeEnv);
+  const approvedCodexModels = resolveApprovedCodexModels(runtimeEnv);
   const expectedWorkspace = normalizeString(
     runtimeEnv.OPENCLAW_WORKSPACE_DIR || "/data/workspaces/openclaw",
   );
@@ -259,7 +283,11 @@ function isGlobalConfigAligned(configDoc, env) {
   const actualAllowedOrigins = Array.isArray(controlUi.allowedOrigins)
     ? controlUi.allowedOrigins
     : [];
+  const actualApprovedModels = ensureObject(defaults.models);
   const gatewayTrustedProxies = Array.isArray(gateway.trustedProxies) ? gateway.trustedProxies : [];
+  const approvedModelsAligned = approvedCodexModels.every(
+    (modelId) => Object.prototype.hasOwnProperty.call(actualApprovedModels, modelId),
+  );
 
   const authAligned =
     gatewayDefaults.auth.mode === "trusted-proxy"
@@ -288,6 +316,7 @@ function isGlobalConfigAligned(configDoc, env) {
     controlUi.dangerouslyDisableDeviceAuth ===
       gatewayDefaults.controlUi.dangerouslyDisableDeviceAuth &&
     defaults.workspace === expectedWorkspace &&
+    approvedModelsAligned &&
     acpxEntry.enabled === acpxDefaults.enabled &&
     normalizeString(acpxConfig.permissionMode) === acpxDefaults.permissionMode &&
     normalizeString(acpxConfig.nonInteractivePermissions) ===
@@ -304,7 +333,10 @@ function reconcileOpenClawState(options = {}) {
   const summaryPath =
     env.OPENCLAW_RECONCILE_SUMMARY_PATH || path.join(stateDir, "reconcile-summary.json");
   const gatewayDefaults = buildDefaultGatewayConfig(env);
-  const { writeJsonAtomic, writeSummary } = createWriteHelpers(nowMs);
+  const helpers = createWriteHelpers(nowMs);
+  const writeJsonAtomic = options.writeJsonAtomic || helpers.writeJsonAtomic;
+  const writeSummary = options.writeSummary || helpers.writeSummary;
+  const readJson = options.safeReadJson || safeReadJson;
 
   const summary = {
     reconciliationCompleted: false,
@@ -314,6 +346,7 @@ function reconcileOpenClawState(options = {}) {
     openClawProxyAuthEnabled:
       resolveGatewayAccessMode(env) === "trusted-proxy" && isOpenClawProxyAuthEnabled(env),
     controlUiAllowedOrigins: resolveControlUiAllowedOrigins(env),
+    approvedCodexModels: resolveApprovedCodexModels(env),
     globalConfigAligned: false,
     globalConfigChanged: false,
     warningMessages: [],
@@ -321,7 +354,7 @@ function reconcileOpenClawState(options = {}) {
     repairedFiles: [],
   };
 
-  const currentGlobalConfig = safeReadJson(configPath, {});
+  const currentGlobalConfig = readJson(configPath, {});
   const sanitized = sanitizeGlobalConfig(currentGlobalConfig, env);
 
   if (sanitized.changed) {
@@ -359,6 +392,7 @@ module.exports = {
   buildDefaultGatewayConfig,
   isOpenClawProxyAuthEnabled,
   reconcileOpenClawState,
+  resolveApprovedCodexModels,
   resolveControlUiAllowedOrigins,
   resolveControlUiFlags,
   resolveGatewayAccessMode,

@@ -23,6 +23,19 @@ note() {
   printf '%s\n' "$*"
 }
 
+is_truthy() {
+  local normalized_value
+  normalized_value="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  case "${normalized_value}" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 require_file() {
   local path="$1"
   [[ -f "${path}" ]] || die "Missing required file: ${path}"
@@ -74,6 +87,14 @@ load_root_env() {
   : "${IMAGE_REPOSITORY:=local/openclaw-gateway}"
   : "${OPENCLAW_VERSION:=}"
   : "${GATEWAY_IMAGE_TAG:=}"
+  : "${CODEX_CLI_VERSION:=0.125.0}"
+  : "${CLAUDE_CODE_VERSION:=2.1.119}"
+  : "${GEMINI_CLI_VERSION:=0.39.1}"
+  : "${HOMEBREW_INSTALL_REF:=HEAD}"
+  : "${HOMEBREW_BREW_REF:=5.1.8}"
+  : "${DOCKER_BUILD_CONTEXT:=}"
+  : "${DOCKER_BUILDER:=}"
+  : "${DOCKER_BUILD_PLATFORM:=}"
   : "${TENANT_MEMORY_RESERVATION:=1536m}"
   : "${TENANT_MEMORY_LIMIT:=3072m}"
   : "${TENANT_PIDS_LIMIT:=512}"
@@ -98,6 +119,8 @@ load_root_env() {
   export CLOUDFLARE_TUNNEL_ID CLOUDFLARE_TUNNEL_CREDENTIALS_FILE
   export CLOUDFLARE_TUNNEL_METRICS CLOUDFLARED_LAUNCHD_LABEL
   export DEPLOY_MODE AUTO_ROLLBACK IMAGE_REPOSITORY OPENCLAW_VERSION GATEWAY_IMAGE_TAG
+  export CODEX_CLI_VERSION CLAUDE_CODE_VERSION GEMINI_CLI_VERSION HOMEBREW_INSTALL_REF HOMEBREW_BREW_REF
+  export DOCKER_BUILD_CONTEXT DOCKER_BUILDER DOCKER_BUILD_PLATFORM
   export TENANT_MEMORY_RESERVATION TENANT_MEMORY_LIMIT TENANT_PIDS_LIMIT TENANT_CONTAINER_SECURITY_PROFILE
   export MAX_ALWAYS_ON_TENANTS BACKUP_ROOT RELEASE_ROOT ROOT_ENV_FILE TENANT_REGISTRY_FILE TENANT_REGISTRY_EXAMPLE_FILE
 }
@@ -302,7 +325,15 @@ cloudflared_ready() {
 }
 
 cloudflared_config_ready() {
+  require_cloudflare_tunnel_config
   require_file "$(cloudflared_config_path)"
+}
+
+require_cloudflare_tunnel_config() {
+  [[ -n "${CLOUDFLARE_TUNNEL_ID:-}" ]] ||
+    die "CLOUDFLARE_TUNNEL_ID is required when INGRESS_MODE=cloudflare"
+  [[ -n "${CLOUDFLARE_TUNNEL_CREDENTIALS_FILE:-}" ]] ||
+    die "CLOUDFLARE_TUNNEL_CREDENTIALS_FILE is required when INGRESS_MODE=cloudflare"
   require_file "${CLOUDFLARE_TUNNEL_CREDENTIALS_FILE}"
 }
 
@@ -473,6 +504,35 @@ record_tenant_release_snapshot() {
   record_release_success "${slug}" "${release_id}"
 }
 
+restore_tenant_env_snapshots() {
+  local slug="$1"
+  local release_dir="$2"
+  local env_snapshot managed_env_snapshot managed_env_file
+
+  env_snapshot="${release_dir}/tenant.env"
+  managed_env_snapshot="${release_dir}/tenant.managed.env"
+  managed_env_file="$(tenant_managed_env_file "${slug}")"
+
+  require_file "${env_snapshot}"
+  cp "${env_snapshot}" "$(tenant_env_file "${slug}")"
+  if [[ -f "${managed_env_snapshot}" ]]; then
+    cp "${managed_env_snapshot}" "${managed_env_file}"
+  else
+    rm -f "${managed_env_file}"
+  fi
+}
+
+purge_tenant_state() {
+  local slug="$1"
+
+  rm -rf \
+    "$(tenant_env_file "${slug}")" \
+    "$(tenant_managed_env_file "${slug}")" \
+    "$(tenant_data_root "${slug}")" \
+    "$(tenant_release_root "${slug}")" \
+    "$(tenant_backup_root "${slug}")"
+}
+
 image_env_value() {
   local image_ref="$1"
   local key="$2"
@@ -600,18 +660,10 @@ tenant_env_value() {
 tenant_env_value_is_true() {
   local slug="$1"
   local key="$2"
-  local value normalized_value
+  local value
 
   value="$(tenant_env_value "${slug}" "${key}")"
-  normalized_value="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
-  case "${normalized_value}" in
-    1|true|yes|on)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  is_truthy "${value}"
 }
 
 tenant_tailscale_enabled() {
@@ -865,13 +917,14 @@ render_cloudflared_config() {
   local output_path
 
   ingress_uses_cloudflare || die "INGRESS_MODE=${INGRESS_MODE} does not use cloudflared"
+  require_cloudflare_tunnel_config
 
   output_path="$(cloudflared_config_path)"
   ensure_directory "$(dirname "${output_path}")"
 
   {
-    printf 'tunnel: %s\n' "${CLOUDFLARE_TUNNEL_ID:-replace-with-your-tunnel-id}"
-    printf 'credentials-file: %s\n' "${CLOUDFLARE_TUNNEL_CREDENTIALS_FILE:-/path/to/cloudflared/tunnel.json}"
+    printf 'tunnel: %s\n' "${CLOUDFLARE_TUNNEL_ID}"
+    printf 'credentials-file: %s\n' "${CLOUDFLARE_TUNNEL_CREDENTIALS_FILE}"
     printf 'metrics: %s\n\n' "${CLOUDFLARE_TUNNEL_METRICS}"
     printf 'ingress:\n'
 

@@ -240,8 +240,6 @@ If you have older repo-local state in `.data/` or `deploy/tenants/env/`, update 
 
 See [Configuration & Governance](../docs/configuration.md) for the full config matrix, control-plane overrides, and precedence rules.
 
----
-
 <details>
 <summary><h2>Tenant Container Security Profile</h2></summary>
 

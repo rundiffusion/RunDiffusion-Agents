@@ -9,21 +9,40 @@ RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    git \
+    patch \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp/openclaw-src
 
+COPY openclaw-ui-patches /tmp/openclaw-ui-patches
+
 RUN set -eux; \
+  mkdir -p /tmp/openclaw-control-ui-built; \
   curl -fsSL "https://github.com/openclaw/openclaw/archive/refs/tags/${OPENCLAW_SOURCE_TAG}.tar.gz" | tar -xz --strip-components=1; \
+  patch_file="/tmp/openclaw-ui-patches/${OPENCLAW_VERSION}.patch"; \
+  if [ -f "${patch_file}" ]; then \
+    patch -p1 < "${patch_file}"; \
+    npm install --legacy-peer-deps; \
+  fi; \
   cd ui; \
   npm install; \
-  npm run build
+  if npm run build; then \
+    cp -a /tmp/openclaw-src/dist/control-ui/. /tmp/openclaw-control-ui-built/; \
+  else \
+    echo "OpenClaw Control UI source build failed for ${OPENCLAW_SOURCE_TAG}; keeping the npm package's bundled Control UI." >&2; \
+  fi
 
 FROM node:22-bookworm-slim
 
 ARG TTYD_VERSION=1.7.7
 ARG HERMES_REF=v2026.3.12
 ARG OPENCLAW_VERSION=2026.3.24
+ARG CODEX_CLI_VERSION=0.125.0
+ARG CLAUDE_CODE_VERSION=2.1.119
+ARG GEMINI_CLI_VERSION=0.39.1
+ARG HOMEBREW_INSTALL_REF=HEAD
+ARG HOMEBREW_BREW_REF=5.1.8
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -85,7 +104,11 @@ RUN useradd -m -s /bin/bash linuxbrew \
   && chown -R linuxbrew:linuxbrew /home/linuxbrew
 
 USER linuxbrew
-RUN NONINTERACTIVE=1 CI=1 bash -lc "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+RUN NONINTERACTIVE=1 CI=1 bash -lc "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/${HOMEBREW_INSTALL_REF}/install.sh)" \
+  && if [ -n "${HOMEBREW_BREW_REF}" ]; then \
+    git -C /home/linuxbrew/.linuxbrew/Homebrew fetch --depth 1 origin "${HOMEBREW_BREW_REF}"; \
+    git -C /home/linuxbrew/.linuxbrew/Homebrew checkout --detach FETCH_HEAD; \
+  fi \
   && /home/linuxbrew/.linuxbrew/bin/brew --version
 
 USER root
@@ -104,9 +127,9 @@ RUN set -eux; \
   ttyd --version; \
   rm -f "/tmp/ttyd.${ttyd_arch}" /tmp/SHA256SUMS
 
-COPY --from=openclaw_control_ui_builder /tmp/openclaw-src/dist/control-ui /opt/openclaw-control-ui-built
+COPY --from=openclaw_control_ui_builder /tmp/openclaw-control-ui-built /opt/openclaw-control-ui-built
 
-RUN npm install -g openclaw@${OPENCLAW_VERSION} @openai/codex@latest @anthropic-ai/claude-code@latest @google/gemini-cli@latest \
+RUN npm install -g openclaw@${OPENCLAW_VERSION} @openai/codex@${CODEX_CLI_VERSION} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @google/gemini-cli@${GEMINI_CLI_VERSION} \
   && if ! command -v gemini >/dev/null 2>&1; then \
     gemini_fallback="$(find /usr/local/lib/node_modules/@google -maxdepth 3 -path '/usr/local/lib/node_modules/@google/.gemini-cli-*/dist/index.js' | head -n 1)"; \
     if [ -z "${gemini_fallback}" ]; then \
@@ -115,9 +138,13 @@ RUN npm install -g openclaw@${OPENCLAW_VERSION} @openai/codex@latest @anthropic-
     fi; \
     ln -sf "${gemini_fallback}" /usr/local/bin/gemini; \
   fi \
-  && rm -rf /usr/local/lib/node_modules/openclaw/dist/control-ui \
-  && mkdir -p /usr/local/lib/node_modules/openclaw/dist/control-ui \
-  && cp -a /opt/openclaw-control-ui-built/. /usr/local/lib/node_modules/openclaw/dist/control-ui/ \
+  && if find /opt/openclaw-control-ui-built -mindepth 1 -print -quit | grep -q .; then \
+    rm -rf /usr/local/lib/node_modules/openclaw/dist/control-ui; \
+    mkdir -p /usr/local/lib/node_modules/openclaw/dist/control-ui; \
+    cp -a /opt/openclaw-control-ui-built/. /usr/local/lib/node_modules/openclaw/dist/control-ui/; \
+  else \
+    echo "Using the bundled OpenClaw Control UI shipped with openclaw@${OPENCLAW_VERSION}."; \
+  fi \
   && mkdir -p /opt/openclaw-pristine \
   && cp -a /usr/local/lib/node_modules/openclaw /opt/openclaw-pristine/openclaw
 
@@ -136,7 +163,7 @@ WORKDIR /app
 COPY --from=filebrowser_quantum /home/filebrowser /opt/filebrowser
 
 COPY dashboard/package.json dashboard/package-lock.json /app/dashboard/
-RUN cd /app/dashboard && npm install
+RUN cd /app/dashboard && npm ci
 
 COPY dashboard /app/dashboard
 RUN cd /app/dashboard && npm run build
