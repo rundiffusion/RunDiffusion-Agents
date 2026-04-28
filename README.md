@@ -35,13 +35,26 @@
 
 ---
 
+## NEW - April 28, 2026
+
+- **Hermes WebUI is now available as a first-class dashboard tool** at `/hermes-webui`, with browser-native chat, session history, tasks, memory, skills, workspace files, and pop-out support.
+- **Pi Agent Terminal is now available as a persistent agent route** at `/pi`, with its own workspace and session state beside Codex, Claude, Gemini, Hermes, and the shared maintenance terminal.
+- **Hermes WebUI history is safer behind subpath proxies**: the service worker now bypasses API/session requests under `/hermes-webui/`, so cached shell assets do not hide new or existing chat history after redeploys.
+
+<p align="center">
+  <img src="images/Hermes-WebUI.jpeg" alt="Hermes WebUI embedded in the RunDiffusion Agents dashboard" width="48%">&nbsp;&nbsp;
+  <img src="images/Pi-Agent-Terminal.jpeg" alt="Pi Agent terminal embedded in the RunDiffusion Agents dashboard" width="48%">
+</p>
+
+---
+
 <div align="center">
 <table>
 <tr>
 <td align="center" width="50%">
 
 **Multi-agent orchestration**<br>
-<sub>Run OpenClaw, Codex, Claude, Gemini & Hermes side-by-side. With a Filebrowser and full Terminal</sub>
+<sub>Run OpenClaw, Hermes WebUI, Codex, Claude, Gemini, Pi & Hermes side-by-side. With Filebrowser and a full Terminal</sub>
 
 </td>
 <td align="center" width="50%">
@@ -118,6 +131,10 @@ tenants:
       CODEX_OPENAI_API_KEY: ""
       CLAUDE_ANTHROPIC_API_KEY: ""
       OPENROUTER_API_KEY: ""
+      PI_OPENAI_API_KEY: ""
+      PI_ANTHROPIC_API_KEY: ""
+      PI_GEMINI_API_KEY: ""
+      PI_OPENROUTER_API_KEY: ""
 
     models:
       allowed: # Allowlist which models this tenant can use
@@ -136,6 +153,8 @@ tenants:
     routes:
       gemini:
         enabled: false # Feature-flag any tool on or off per tenant
+      pi:
+        enabled: true
 ```
 
 **What you control from one file:**
@@ -145,7 +164,7 @@ tenants:
 - **Model governance** — allowlists, primary model selection, and fallback chains
 - **Agent-to-model binding** — decide which model powers each tenant's operator
 - **Provider policy** — toggle auth hydration and provider-level behavior
-- **Route-level feature flags** — enable or disable Gemini, Claude, Codex, or any route per tenant
+- **Route-level feature flags** — manage Gemini and Pi route flags from the control plane, with Codex, Claude, Hermes WebUI, and other route flags available in tenant env
 
 This is the difference between "we have AI tools" and "we have AI governance." One file. Full fleet control.
 
@@ -312,7 +331,7 @@ Use this when you want the full shared-host architecture — Traefik ingress, pe
 - `INGRESS_MODE=local` is for local multi-tenant and LAN/private-network installs.
 - `INGRESS_MODE=direct` is for remote multi-tenant hosts where you already have DNS and HTTPS handled outside the repo.
 - `INGRESS_MODE=cloudflare` is for remote multi-tenant hosts published through Cloudflare Tunnel.
-- On plain HTTP LAN hostnames, `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, and `/gemini` work cleanly, but vanilla native `/openclaw` still needs HTTPS or localhost.
+- On plain HTTP LAN hostnames, `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/hermes-webui`, `/codex`, `/claude`, `/gemini`, and `/pi` work cleanly, but vanilla native `/openclaw` still needs HTTPS or localhost.
 
 TLS automation for private-hostname LAN installs is still outside the scope of this release.
 
@@ -407,7 +426,7 @@ A **strong operator agent** sits above the deployment and manages the rest of th
          ┌────┐ ┌────┐ ┌────┐ ┌────┐
          │ T1 │ │ T2 │ │ T3 │ │ T4 │   ← isolated Docker containers
          └────┘ └────┘ └────┘ └────┘
-          each: OpenClaw · Codex · Claude · Gemini · Hermes
+          each: OpenClaw · Hermes WebUI · Codex · Claude · Gemini · Pi · Hermes
                 Terminal · FileBrowser · Dashboard
 ```
 
@@ -487,7 +506,7 @@ Ready to generate a migration plan when you are.
 
 Each tool runs on its own dedicated route — pop any app out of the dashboard for a full-screen experience.
 
-### OpenClaw, Codex, Claude & Gemini
+### OpenClaw, Codex, Claude, Gemini & Pi
 
 Run your favorite models side-by-side in fully featured, stateful environments.
 
@@ -499,6 +518,20 @@ Run your favorite models side-by-side in fully featured, stateful environments.
   <img src="images/Claude.png" alt="Claude Code — Anthropic agent terminal" width="400">&nbsp;&nbsp;
   <img src="images/Gemini.png" alt="Gemini CLI — Google agent terminal" width="400">
 </p>
+<p align="center">
+  <img src="images/Pi-Agent-Terminal.jpeg" alt="Pi Agent Terminal — persistent Pi coding agent route" width="800">
+</p>
+
+<details open>
+<summary><strong>Hermes WebUI — Browser-Native Chat & Sessions</strong></summary>
+
+Hermes WebUI gives Hermes a full browser-native surface with chat history, sessions, memory, tasks, skills, workspace files, and pop-out mode from the dashboard.
+
+<p align="center">
+  <img src="images/Hermes-WebUI.jpeg" alt="Hermes WebUI — browser-native Hermes chat, sessions, and workspace tools" width="800">
+</p>
+
+</details>
 
 <details>
 <summary><strong>Hermes — Delegated Tasks</strong></summary>
@@ -552,6 +585,10 @@ Your entire agent farm is secured by Basic Auth, with robust device pairing for 
 
 - **Terminal Quirks:** The integrated terminal has multiple modes for scrolling, copying, and pasting. Read the help modal inside the terminal for full details.
 - **Filebrowser Permissions:** Proxy-authenticated FileBrowser users receive full operator permissions automatically when they first sign in, and existing proxy users are reconciled on startup so no manual settings changes are required.
+- **Hermes WebUI History:** Non-empty Hermes WebUI conversations persist under `HERMES_HOME` and should appear in the left sidebar. Blank zero-message scratch sessions may stay hidden until the first message is sent.
+- **Hermes WebUI Cache:** After enabling or upgrading Hermes WebUI, do one hard reload. If the sidebar, route list, or session history still looks stale, clear site data for that tenant hostname so the browser drops the old service worker/cache.
+- **Pi Bootstrap:** Enable Pi with `PI_ENABLED=1`; its auth/session files persist under `PI_CODING_AGENT_DIR` and its default workspace is `PI_WORKSPACE_DIR`. If you do not preconfigure provider keys, expect the first Pi session to require interactive login or provider setup.
+- **Route Toggles:** `HERMES_WEBUI_ENABLED`, `CODEX_ENABLED`, and `CLAUDE_ENABLED` live in the tenant env today; Gemini and Pi can also be managed from the host control-plane YAML. Redeploy the tenant after changing route flags or managed control-plane values.
 - **Hardware:** For an optimal experience balancing performance and cost, a **Mac Mini M4 (16 GB RAM)** runs about **6 to 8 agents comfortably**.
 
 ---
@@ -603,7 +640,7 @@ RunDiffusion Agents is licensed under Apache-2.0. See [LICENSE](LICENSE),
 and the engineering inventory in [docs/license-audit.md](docs/license-audit.md).
 
 This repository can bundle or launch third-party tools such as
-OpenClaw, Codex, Claude Code, Gemini CLI, Hermes, Traefik, and FileBrowser. The
+OpenClaw, Codex, Claude Code, Gemini CLI, Pi, Hermes, Traefik, and FileBrowser. The
 Apache-2.0 license applies to RunDiffusion's code in this repo only. It does not
 relicense those third-party tools or grant rights to the separate APIs and hosted
 services they may use.

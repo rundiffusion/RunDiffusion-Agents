@@ -17,6 +17,10 @@ MANAGED_SECRET_KEYS = (
     "CODEX_OPENAI_API_KEY",
     "CLAUDE_ANTHROPIC_API_KEY",
     "OPENROUTER_API_KEY",
+    "PI_OPENAI_API_KEY",
+    "PI_ANTHROPIC_API_KEY",
+    "PI_GEMINI_API_KEY",
+    "PI_OPENROUTER_API_KEY",
 )
 DEFAULT_PRIMARY_MODEL = "moonshot/kimi-k2.6"
 DEFAULT_CODEX_MODEL = "gpt-5.4"
@@ -42,7 +46,7 @@ def normalize_openclaw_version(control_plane_entry, tenant_slug):
     if version and not OPENCLAW_VERSION_RE.fullmatch(version):
         raise SystemExit(
             f"Invalid openclawVersion '{version}' for tenant '{tenant_slug}'. "
-            "Use an exact version such as 2026.3.22 or 2026.3.22-beta.1"
+            "Use an exact version such as 2026.4.15 or 2026.4.15-beta.1"
         )
     return version
 
@@ -588,16 +592,25 @@ def build_managed_env(control_plane_entry, current_env):
     secrets = ensure_object(control_plane_entry.get("secrets"))
     routes = ensure_object(control_plane_entry.get("routes"))
     gemini_route = ensure_object(routes.get("gemini"))
+    pi_route = ensure_object(routes.get("pi"))
     managed = {}
 
     for key in MANAGED_SECRET_KEYS:
-        managed[key] = normalize_string(secrets.get(key, ""))
+        value = normalize_string(secrets.get(key, ""))
+        if value:
+            managed[key] = value
 
     gemini_enabled = gemini_route.get("enabled")
     if isinstance(gemini_enabled, bool):
         managed["GEMINI_ENABLED"] = "1" if gemini_enabled else "0"
     elif "GEMINI_ENABLED" in current_env and normalize_string(current_env.get("GEMINI_ENABLED")):
         managed["GEMINI_ENABLED"] = normalize_string(current_env.get("GEMINI_ENABLED"))
+
+    pi_enabled = pi_route.get("enabled")
+    if isinstance(pi_enabled, bool):
+        managed["PI_ENABLED"] = "1" if pi_enabled else "0"
+    elif "PI_ENABLED" in current_env and normalize_string(current_env.get("PI_ENABLED")):
+        managed["PI_ENABLED"] = normalize_string(current_env.get("PI_ENABLED"))
 
     return managed
 

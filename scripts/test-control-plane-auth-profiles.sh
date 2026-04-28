@@ -43,6 +43,13 @@ tenants:
     agents:
       main:
         model: openai-codex/gpt-5.4
+    secrets:
+      CODEX_OPENAI_API_KEY: sample-codex-key
+      PI_OPENAI_API_KEY: sample-pi-openai-key
+      GEMINI_API_KEY: ''
+    routes:
+      pi:
+        enabled: false
     auth:
       order:
         openai-codex:
@@ -197,6 +204,10 @@ python3 "${REPO_ROOT}/scripts/sync_tenant_control_plane.py" \
   --control-plane-config-path "${tmpdir}/control-plane.yml" >/dev/null
 
 managed_env="$(cat "${tmpdir}/managed.env")"
+assert_contains "${managed_env}" "CODEX_OPENAI_API_KEY=sample-codex-key" "managed env writes non-empty control-plane secrets"
+assert_contains "${managed_env}" "PI_OPENAI_API_KEY=sample-pi-openai-key" "managed env writes Pi secrets"
+assert_contains "${managed_env}" "PI_ENABLED=0" "managed env writes Pi route flag"
+assert_not_contains "${managed_env}" "GEMINI_API_KEY=" "managed env does not blank tenant secrets"
 assert_not_contains "${managed_env}" "CODEX_LB_API_KEY" "managed env drops codex-lb API key"
 
 openclaw_config="$(cat "${tmpdir}/tenant-data/gateway/.openclaw/openclaw.json")"

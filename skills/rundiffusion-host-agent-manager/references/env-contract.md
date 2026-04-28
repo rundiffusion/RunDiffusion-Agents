@@ -28,6 +28,7 @@ Read [`../../.env.example`](../../.env.example) first. It defines the shared hos
 | `IMAGE_REPOSITORY` | Docker image repository | Yes |
 | `OPENCLAW_VERSION` | Default OpenClaw version for all tenants | Yes (derived) |
 | `GATEWAY_IMAGE_TAG` | Image tag override | Yes (derived) |
+| `PI_CODING_AGENT_VERSION` | Pi Coding Agent version baked into gateway images | Yes (derived) |
 | `TENANT_MEMORY_RESERVATION` | Container memory reservation | Yes |
 | `TENANT_MEMORY_LIMIT` | Container memory limit | Yes |
 | `TENANT_PIDS_LIMIT` | Container PID limit | Yes |
@@ -60,10 +61,11 @@ Real files live under `TENANT_ENV_ROOT` (e.g., `/srv/rundiffusion-agents/secrets
 | `CODEX_ENABLED` | Enable `/codex` | Yes |
 | `CLAUDE_ENABLED` | Enable `/claude` | Yes |
 | `GEMINI_ENABLED` | Enable `/gemini` | Yes |
+| `PI_ENABLED` | Enable `/pi` | Yes |
 | `TAILSCALE_ENABLED` | Per-tenant Tailscale | No |
 | `TAILSCALE_AUTHKEY` | Tailscale auth key | No |
 | `TAILSCALE_HOSTNAME` | Tailscale hostname | No |
-| Provider API keys | Tenant-specific credentials | No |
+| Provider API keys | Tenant-specific credentials, including separate Pi provider keys | No |
 
 ## How Vars Reach Docker
 

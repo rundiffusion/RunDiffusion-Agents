@@ -18,11 +18,23 @@ type DashboardConfig = {
   title: string;
   subtitle: string;
   openclawAccessMode: string;
+  preferences: DashboardPreferences;
   tools: ToolDefinition[];
   utilities: UtilityDefinition[];
 };
 
+type DashboardPreferences = {
+  toolOrder: string[];
+  defaultToolOrder: string[];
+};
+
+type PreferencesResponse = {
+  preferences: DashboardPreferences;
+  config: DashboardConfig;
+};
+
 const CONFIG_ENDPOINT = "/dashboard-api/config";
+const PREFERENCES_ENDPOINT = "/dashboard-api/preferences";
 const DEVICE_APPROVALS_ENDPOINT = "/dashboard-api/utilities/device-approvals";
 const RESTART_ENDPOINT = "/dashboard-api/utilities/restart-gateway";
 
@@ -40,6 +52,16 @@ function writeSelectedView(viewId: string) {
   const nextHash = `#view=${encodeURIComponent(viewId)}`;
   if (window.location.hash === nextHash) return;
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
+}
+
+function resolveViewId(config: DashboardConfig, preferredViewId = "") {
+  const candidate = preferredViewId.trim();
+  const availableIds = new Set([...config.tools.map((tool) => tool.id), ...config.utilities.map((utility) => utility.id)]);
+  if (candidate && availableIds.has(candidate)) {
+    return candidate;
+  }
+
+  return config.tools[0]?.id || config.utilities[0]?.id || "";
 }
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -118,20 +140,22 @@ export default function App() {
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<ActionResult>(null);
 
+  const applyConfig = useCallback((nextConfig: DashboardConfig, preferredViewId = readSelectedView()) => {
+    setConfig(nextConfig);
+    setConfigError(null);
+
+    const nextView = resolveViewId(nextConfig, preferredViewId);
+    setSelectedId(nextView);
+    if (nextView) writeSelectedView(nextView);
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
     void fetchJson<DashboardConfig>(CONFIG_ENDPOINT)
       .then((nextConfig) => {
         if (!isMounted) return;
-        setConfig(nextConfig);
-        setConfigError(null);
-
-        const requestedView = readSelectedView();
-        const fallbackView = nextConfig.tools[0]?.id || nextConfig.utilities[0]?.id || "";
-        const nextView = requestedView || fallbackView;
-        setSelectedId(nextView);
-        if (nextView) writeSelectedView(nextView);
+        applyConfig(nextConfig);
       })
       .catch((error: Error) => {
         if (!isMounted) return;
@@ -141,19 +165,20 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [applyConfig]);
 
   useEffect(() => {
     function onHashChange() {
       const nextView = readSelectedView();
-      if (nextView) setSelectedId(nextView);
+      if (!config || !nextView) return;
+      setSelectedId(resolveViewId(config, nextView));
     }
 
     window.addEventListener("hashchange", onHashChange);
     return () => {
       window.removeEventListener("hashchange", onHashChange);
     };
-  }, []);
+  }, [config]);
 
   const selectView = useCallback((viewId: string) => {
     setSelectedId(viewId);
@@ -226,6 +251,21 @@ export default function App() {
     }
   }, []);
 
+  const saveToolOrder = useCallback(
+    async (toolOrder: string[]) => {
+      const response = await fetchJson<PreferencesResponse>(PREFERENCES_ENDPOINT, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ toolOrder }),
+      });
+
+      applyConfig(response.config, selectedId);
+    },
+    [applyConfig, selectedId],
+  );
+
   const selectedTool = useMemo(
     () => config?.tools.find((tool) => tool.id === selectedId) ?? null,
     [config, selectedId],
@@ -258,9 +298,11 @@ export default function App() {
       title={config.title}
       subtitle={config.subtitle}
       tools={config.tools}
+      preferences={config.preferences}
       utilities={config.utilities}
       selectedId={selectedId}
       onSelect={selectView}
+      onSaveToolOrder={saveToolOrder}
     >
       {selectedTool ? (
         <ToolFrame

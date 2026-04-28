@@ -69,7 +69,7 @@ Use the [host control-plane YAML](./configuration.md#layer-2-host-control-plane-
 | Inject or rotate managed API keys | Control-plane YAML |
 | Set model allowlists, primary model, fallbacks | Control-plane YAML |
 | Change agent-to-model binding | Control-plane YAML |
-| Toggle route feature flags (Gemini, etc.) | Control-plane YAML |
+| Toggle route feature flags (Gemini, Pi, etc.) | Control-plane YAML |
 | Change tenant hostname or allowed origins | Tenant env file |
 | Change gateway token or Basic Auth credentials | Tenant env file |
 | Enable/disable Tailscale | Tenant env file |

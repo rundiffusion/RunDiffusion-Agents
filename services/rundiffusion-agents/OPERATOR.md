@@ -30,6 +30,7 @@ In native mode, the operator uses:
 | `/codex` | OpenAI Codex CLI |
 | `/claude` | Claude Code CLI |
 | `/gemini` | Gemini CLI |
+| `/pi` | Pi coding agent CLI |
 
 Required env for the recommended standalone native deployment:
 
@@ -67,7 +68,7 @@ Repeated retries before approval can trigger rate limiting (`Too many unauthoriz
 
 `/dashboard` is a small embedded operator shell providing:
 
-- Left sidebar: OpenClaw, Hermes, Codex, Claude Code, Gemini, Terminal, FileBrowser
+- Left sidebar: OpenClaw, Hermes, Codex, Claude Code, Gemini, Pi, Terminal, FileBrowser
 - Same-origin embedded views for sibling tools
 - "Open in new tab" escape hatches for every tool
 - Utilities section with device approval and gateway restart helpers
@@ -87,6 +88,7 @@ Protected by the same Basic Auth as `/terminal` and `/filebrowser`.
 | `/codex` | `/data/workspaces/codex` | `/data/.codex` | `CODEX_ENABLED` |
 | `/claude` | `/data/workspaces/claude` | `/data/.claude` | `CLAUDE_ENABLED` |
 | `/gemini` | `/data/workspaces/gemini` | `/data/.gemini` | `GEMINI_ENABLED` |
+| `/pi` | `/data/workspaces/pi` | `/data/.pi/agent` | `PI_ENABLED` |
 
 OpenClaw boots without a wrapper-selected model or provider profile. The wrapper only keeps the gateway auth/path/workspace contract in place. Use the OpenClaw UI for first model/provider onboarding.
 
@@ -107,6 +109,9 @@ OpenClaw boots without a wrapper-selected model or provider profile. The wrapper
 **Gemini (`/gemini`):**
 - Interactive login by default, or `GEMINI_CLI_API_KEY` for pre-auth
 
+**Pi (`/pi`):**
+- Interactive `/login` by default, or separate `PI_OPENAI_API_KEY`, `PI_ANTHROPIC_API_KEY`, `PI_GEMINI_API_KEY`, and `PI_OPENROUTER_API_KEY` values for pre-auth
+
 ### FileBrowser
 
 FileBrowser Quantum exposes these user-facing roots:
@@ -119,7 +124,8 @@ FileBrowser Quantum exposes these user-facing roots:
 | Codex Workspace | `/data/workspaces/codex` |
 | Claude Workspace | `/data/workspaces/claude` |
 | Gemini Workspace | `/data/workspaces/gemini` |
-| Tool Files | `/data/tool-files` (aggregate: `.hermes`, `.codex`, `.claude`, `.gemini`, `.openclaw`, `.filebrowser`) |
+| Pi Workspace | `/data/workspaces/pi` |
+| Tool Files | `/data/tool-files` (aggregate: `.hermes`, `.codex`, `.claude`, `.gemini`, `.pi`, `.openclaw`, `.filebrowser`) |
 | Container App | `/app` |
 
 Proxy-authenticated FileBrowser users are provisioned with full operator permissions automatically, and existing `filebrowser-*` users are reconciled on startup.
@@ -152,7 +158,7 @@ capture-openclaw-baseline     # Snapshot current state after successful onboardi
 restart-openclaw-gateway      # In-place gateway restart, waits for /healthz
 ```
 
-None of these touch Hermes, Codex, Claude, or Gemini home directories.
+None of these touch Hermes, Codex, Claude, Gemini, or Pi home directories.
 
 ### Device Management
 
@@ -180,6 +186,6 @@ Recommended restart mode: `OPENCLAW_NO_RESPAWN=0` so full-process gateway restar
 ## Notes
 
 - `/openclaw` uses native auth in `native` mode — not protected by nginx Basic Auth
-- `/terminal`, `/hermes`, `/codex`, `/claude`, `/gemini`, `/filebrowser` all share the same Basic Auth
+- `/terminal`, `/hermes`, `/codex`, `/claude`, `/gemini`, `/pi`, `/filebrowser` all share the same Basic Auth
 - `openclaw onboard` should not be run inside this managed container — it can rewrite persisted gateway config in ways that drift from the deployment contract
 - On multi-tenant hosts, if namespace-dependent tool calls fail, set `TENANT_CONTAINER_SECURITY_PROFILE=tool-userns` in the root `.env`, redeploy, and escalate to `privileged` only if `unshare -U true` still fails

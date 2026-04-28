@@ -1,7 +1,29 @@
-import type { ReactNode } from "react";
-import { ChevronRight, CircleUserRound, LayoutGrid, Wrench } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  CircleUserRound,
+  LayoutGrid,
+  RotateCcw,
+  SlidersHorizontal,
+  Wrench,
+  X,
+} from "lucide-react";
 
 import { cn } from "../lib/utils";
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 
 const BRAND_LOGO_PATH = `${import.meta.env.BASE_URL}rundiffusion-agents-logo.png`;
 
@@ -12,6 +34,11 @@ type NavigationItem = {
   enabled?: boolean;
 };
 
+type ToolOrderPreferences = {
+  toolOrder: string[];
+  defaultToolOrder: string[];
+};
+
 type AppShellProps = {
   brandName: string;
   tenantLabel: string;
@@ -19,11 +46,221 @@ type AppShellProps = {
   title: string;
   subtitle: string;
   tools: NavigationItem[];
+  preferences: ToolOrderPreferences;
   utilities: NavigationItem[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onSaveToolOrder: (toolOrder: string[]) => Promise<void>;
   children: ReactNode;
 };
+
+function orderedVisibleTools(tools: NavigationItem[], order: string[]) {
+  const toolById = new Map(tools.map((tool) => [tool.id, tool]));
+  const seenIds = new Set<string>();
+  const orderedTools: NavigationItem[] = [];
+
+  for (const id of order) {
+    const tool = toolById.get(id);
+    if (!tool || seenIds.has(id)) continue;
+    seenIds.add(id);
+    orderedTools.push(tool);
+  }
+
+  for (const tool of tools) {
+    if (!seenIds.has(tool.id)) {
+      orderedTools.push(tool);
+    }
+  }
+
+  return orderedTools;
+}
+
+function mergeVisibleOrder(fullOrder: string[], visibleOrder: string[], defaultOrder: string[]) {
+  const defaultIds = new Set(defaultOrder);
+  const visibleIds = new Set(visibleOrder);
+  const nextOrder: string[] = [];
+  const seenIds = new Set<string>();
+  const baseOrder = fullOrder.length ? fullOrder : defaultOrder;
+  let visibleIndex = 0;
+
+  for (const id of baseOrder) {
+    if (!defaultIds.has(id) || seenIds.has(id)) continue;
+
+    if (visibleIds.has(id)) {
+      const replacement = visibleOrder[visibleIndex];
+      visibleIndex += 1;
+      if (replacement && defaultIds.has(replacement) && !seenIds.has(replacement)) {
+        nextOrder.push(replacement);
+        seenIds.add(replacement);
+      }
+      continue;
+    }
+
+    nextOrder.push(id);
+    seenIds.add(id);
+  }
+
+  for (const id of visibleOrder) {
+    if (defaultIds.has(id) && !seenIds.has(id)) {
+      nextOrder.push(id);
+      seenIds.add(id);
+    }
+  }
+
+  for (const id of defaultOrder) {
+    if (!seenIds.has(id)) {
+      nextOrder.push(id);
+    }
+  }
+
+  return nextOrder;
+}
+
+function moveItem(items: string[], index: number, direction: -1 | 1) {
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= items.length) return items;
+  const nextItems = [...items];
+  const [item] = nextItems.splice(index, 1);
+  nextItems.splice(nextIndex, 0, item);
+  return nextItems;
+}
+
+function AppOrderDialog({
+  tools,
+  preferences,
+  onSaveToolOrder,
+}: {
+  tools: NavigationItem[];
+  preferences: ToolOrderPreferences;
+  onSaveToolOrder: (toolOrder: string[]) => Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [shouldSaveDefaultOrder, setShouldSaveDefaultOrder] = useState(false);
+  const toolsById = useMemo(() => new Map(tools.map((tool) => [tool.id, tool])), [tools]);
+  const draftTools = draftOrder
+    .map((id) => toolsById.get(id))
+    .filter((tool): tool is NavigationItem => Boolean(tool));
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setDraftOrder(orderedVisibleTools(tools, preferences.toolOrder).map((tool) => tool.id));
+    setSaveError(null);
+    setShouldSaveDefaultOrder(false);
+  }, [isOpen, preferences.toolOrder, tools]);
+
+  const resetOrder = () => {
+    setDraftOrder(orderedVisibleTools(tools, preferences.defaultToolOrder).map((tool) => tool.id));
+    setSaveError(null);
+    setShouldSaveDefaultOrder(true);
+  };
+
+  const saveOrder = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await onSaveToolOrder(
+        shouldSaveDefaultOrder
+          ? preferences.defaultToolOrder
+          : mergeVisibleOrder(preferences.toolOrder, draftOrder, preferences.defaultToolOrder),
+      );
+      setIsOpen(false);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save app order.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 px-2.5">
+          <SlidersHorizontal className="h-4 w-4" />
+          Order
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="w-[min(520px,calc(100vw-2rem))]">
+        <DialogHeader className="border-b border-zinc-800/80 pb-5 pr-20">
+          <DialogTitle>App order</DialogTitle>
+          <DialogDescription>Saved for this tenant.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 overflow-y-auto px-6 py-5">
+          {draftTools.map((tool, index) => (
+            <div
+              key={tool.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/55 px-3 py-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-zinc-50">{tool.label}</div>
+                <div className="mt-0.5 truncate text-xs text-zinc-500">{tool.description}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 px-0"
+                  onClick={() => {
+                    setShouldSaveDefaultOrder(false);
+                    setDraftOrder((current) => moveItem(current, index, -1));
+                  }}
+                  disabled={index === 0 || isSaving}
+                  aria-label={`Move ${tool.label} up`}
+                  title={`Move ${tool.label} up`}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 px-0"
+                  onClick={() => {
+                    setShouldSaveDefaultOrder(false);
+                    setDraftOrder((current) => moveItem(current, index, 1));
+                  }}
+                  disabled={index === draftTools.length - 1 || isSaving}
+                  aria-label={`Move ${tool.label} down`}
+                  title={`Move ${tool.label} down`}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          {saveError ? (
+            <div className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 py-3 text-sm text-rose-100">
+              {saveError}
+            </div>
+          ) : null}
+        </div>
+
+        <DialogFooter className="border-t border-zinc-800/80 pt-5">
+          <Button type="button" variant="ghost" onClick={resetOrder} disabled={isSaving}>
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </Button>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSaving}>
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={() => void saveOrder()} disabled={isSaving}>
+            <Check className="h-4 w-4" />
+            {isSaving ? "Saving" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function NavigationSection({
   icon,
@@ -31,6 +268,7 @@ function NavigationSection({
   items,
   selectedId,
   onSelect,
+  action,
   compact = false,
 }: {
   icon: ReactNode;
@@ -38,13 +276,17 @@ function NavigationSection({
   items: NavigationItem[];
   selectedId: string;
   onSelect: (id: string) => void;
+  action?: ReactNode;
   compact?: boolean;
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
-        {icon}
-        <span>{label}</span>
+      <div className="flex items-center justify-between gap-3 px-2">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
+          {icon}
+          <span>{label}</span>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       <div className="space-y-1.5">
         {items.map((item) => {
@@ -93,9 +335,11 @@ export function AppShell({
   title,
   subtitle,
   tools,
+  preferences,
   utilities,
   selectedId,
   onSelect,
+  onSaveToolOrder,
   children,
 }: AppShellProps) {
   return (
@@ -128,6 +372,13 @@ export function AppShell({
               items={tools}
               selectedId={selectedId}
               onSelect={onSelect}
+              action={
+                <AppOrderDialog
+                  tools={tools}
+                  preferences={preferences}
+                  onSaveToolOrder={onSaveToolOrder}
+                />
+              }
             />
           </div>
 

@@ -22,6 +22,8 @@ include:
   against OpenAI-hosted models or APIs
 - Google Gemini CLI (Apache-2.0), plus separate Google service terms when used
   against Google-hosted models or APIs
+- Pi Coding Agent (MIT), plus separate provider/API terms when used against
+  hosted models or APIs
 - Claude Code (subject to Anthropic Commercial Terms; not open-source software)
 - FileBrowser Quantum (Apache-2.0)
 - Traefik (MIT)

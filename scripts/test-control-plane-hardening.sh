@@ -64,6 +64,7 @@ TENANT_CONTROL_PLANE_CONFIG_PATH=${tmpdir}/env/control-plane.yml
 TRAEFIK_BIND_ADDRESS=127.0.0.1
 TRAEFIK_HTTP_PORT=38080
 TRAEFIK_NETWORK=test-network
+TRAEFIK_IMAGE=traefik:v3.4@sha256:06ddf61ee653caf4f4211a604e657f084f4727f762c16f826c97aafbefcb279e
 TRAEFIK_LOG_LEVEL=INFO
 CLOUDFLARE_HOSTNAME_MODE=wildcard
 CLOUDFLARE_TUNNEL_ID=
@@ -73,13 +74,18 @@ CLOUDFLARED_LAUNCHD_LABEL=com.test.cloudflared
 DEPLOY_MODE=build
 AUTO_ROLLBACK=1
 IMAGE_REPOSITORY=local/openclaw-gateway
-OPENCLAW_VERSION=2026.3.24
+OPENCLAW_VERSION=2026.4.15
 GATEWAY_IMAGE_TAG=
+NODE_IMAGE_REF=docker.io/library/node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c
+FILEBROWSER_IMAGE_REF=ghcr.io/gtsteffaniak/filebrowser:stable-slim@sha256:8e6f7d32f5f0b7a40cb3a80197ef27088f01828a132f5bfed337d77b10e0f1e2
 CODEX_CLI_VERSION=0.125.0
 CLAUDE_CODE_VERSION=2.1.119
 GEMINI_CLI_VERSION=0.39.1
-HOMEBREW_INSTALL_REF=HEAD
+PI_CODING_AGENT_VERSION=0.70.5
+HOMEBREW_INSTALL_REF=d683ebc428169a5e0d60959e48a4c35d6f23ddd9
 HOMEBREW_BREW_REF=5.1.8
+HERMES_REF=v2026.4.23
+HERMES_WEBUI_REF=v0.50.236
 DOCKER_BUILD_CONTEXT=
 DOCKER_BUILDER=
 DOCKER_BUILD_PLATFORM=
@@ -102,8 +108,14 @@ assert_file "${tmpdir}/env/managed/alpha.env"
 assert_not_exists "${fixture_repo}/gateway"
 
 managed_stub="$(cat "${tmpdir}/env/managed/alpha.env")"
+tenant_stub="$(cat "${tmpdir}/env/alpha.env")"
 assert_contains "${managed_stub}" "# Managed by the RunDiffusion Agents control plane." "managed stub is created"
 assert_not_contains "${managed_stub}" "GEMINI_API_KEY=" "no-entry managed env does not seed secrets"
+assert_contains "${tenant_stub}" "PI_ENABLED=1" "new tenants enable Pi route by default"
+assert_contains "${tenant_stub}" "PI_OPENAI_API_KEY=" "new tenants include Pi OpenAI key slot"
+assert_contains "${tenant_stub}" "PI_ANTHROPIC_API_KEY=" "new tenants include Pi Anthropic key slot"
+assert_contains "${tenant_stub}" "PI_GEMINI_API_KEY=" "new tenants include Pi Gemini key slot"
+assert_contains "${tenant_stub}" "PI_OPENROUTER_API_KEY=" "new tenants include Pi OpenRouter key slot"
 
 assert_not_exists "${tmpdir}/data/tenants/alpha/gateway/.openclaw/openclaw.json"
 assert_not_exists "${tmpdir}/data/tenants/alpha/gateway/.codex/config.toml"

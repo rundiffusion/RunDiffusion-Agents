@@ -1,6 +1,6 @@
 # Release Checklist
 
-Performed by the release engineer before exporting to the public OSS repository. This project uses date-based versioning (e.g., `2026.3.24`).
+Performed by the release engineer before exporting to the public OSS repository. This project uses date-based versioning (e.g., `2026.4.15`).
 
 ---
 
@@ -23,10 +23,10 @@ Performed by the release engineer before exporting to the public OSS repository.
 - [ ] Docs use placeholder usernames and host paths
 - [ ] No real tenant names, slugs, or org-specific repo names remain
 - [ ] No org-specific optional private registry service remains in the export
-- [ ] Proprietary or separately licensed integrations described accurately (especially Claude Code)
+- [ ] Proprietary or separately licensed integrations described accurately (especially Claude Code and Pi provider/API terms)
 - [ ] Release-facing disclaimer matches current risk posture
 - [ ] Main README and quickstarts visibly warn that operators use the software at their own risk
-- [ ] Any `@latest` third-party installs in the Dockerfile re-audited for the release date
+- [ ] Gateway runtime pins reviewed and intentionally bumped where needed
 
 ## Verification
 

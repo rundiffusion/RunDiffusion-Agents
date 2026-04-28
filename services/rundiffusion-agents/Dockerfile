@@ -1,9 +1,12 @@
-FROM ghcr.io/gtsteffaniak/filebrowser:stable-slim AS filebrowser_quantum
+ARG FILEBROWSER_IMAGE_REF=ghcr.io/gtsteffaniak/filebrowser:stable-slim@sha256:8e6f7d32f5f0b7a40cb3a80197ef27088f01828a132f5bfed337d77b10e0f1e2
+ARG NODE_IMAGE_REF=docker.io/library/node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c
 
-FROM node:22-bookworm-slim AS openclaw_control_ui_builder
+FROM ${FILEBROWSER_IMAGE_REF} AS filebrowser_quantum
 
-ARG OPENCLAW_VERSION=2026.3.24
-ARG OPENCLAW_SOURCE_TAG=v2026.3.24
+FROM ${NODE_IMAGE_REF} AS openclaw_control_ui_builder
+
+ARG OPENCLAW_VERSION=2026.4.15
+ARG OPENCLAW_SOURCE_TAG=v2026.4.15
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -33,15 +36,17 @@ RUN set -eux; \
     echo "OpenClaw Control UI source build failed for ${OPENCLAW_SOURCE_TAG}; keeping the npm package's bundled Control UI." >&2; \
   fi
 
-FROM node:22-bookworm-slim
+FROM ${NODE_IMAGE_REF}
 
 ARG TTYD_VERSION=1.7.7
-ARG HERMES_REF=v2026.3.12
-ARG OPENCLAW_VERSION=2026.3.24
+ARG HERMES_REF=v2026.4.23
+ARG HERMES_WEBUI_REF=v0.50.236
+ARG OPENCLAW_VERSION=2026.4.15
 ARG CODEX_CLI_VERSION=0.125.0
 ARG CLAUDE_CODE_VERSION=2.1.119
 ARG GEMINI_CLI_VERSION=0.39.1
-ARG HOMEBREW_INSTALL_REF=HEAD
+ARG PI_CODING_AGENT_VERSION=0.70.5
+ARG HOMEBREW_INSTALL_REF=d683ebc428169a5e0d60959e48a4c35d6f23ddd9
 ARG HOMEBREW_BREW_REF=5.1.8
 
 RUN apt-get update \
@@ -129,7 +134,7 @@ RUN set -eux; \
 
 COPY --from=openclaw_control_ui_builder /tmp/openclaw-control-ui-built /opt/openclaw-control-ui-built
 
-RUN npm install -g openclaw@${OPENCLAW_VERSION} @openai/codex@${CODEX_CLI_VERSION} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @google/gemini-cli@${GEMINI_CLI_VERSION} \
+RUN npm install -g openclaw@${OPENCLAW_VERSION} @openai/codex@${CODEX_CLI_VERSION} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @google/gemini-cli@${GEMINI_CLI_VERSION} @mariozechner/pi-coding-agent@${PI_CODING_AGENT_VERSION} \
   && if ! command -v gemini >/dev/null 2>&1; then \
     gemini_fallback="$(find /usr/local/lib/node_modules/@google -maxdepth 3 -path '/usr/local/lib/node_modules/@google/.gemini-cli-*/dist/index.js' | head -n 1)"; \
     if [ -z "${gemini_fallback}" ]; then \
@@ -154,9 +159,20 @@ RUN set -eux; \
   /opt/hermes-venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel; \
   cd /opt/hermes-src; \
   /opt/hermes-venv/bin/pip install --no-cache-dir -e ".[cli,pty,mcp]"; \
-  /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  if [ -f ./mini-swe-agent/pyproject.toml ] || [ -f ./mini-swe-agent/setup.py ]; then \
+    /opt/hermes-venv/bin/pip install --no-cache-dir -e "./mini-swe-agent"; \
+  else \
+    echo "Hermes ${HERMES_REF} does not ship mini-swe-agent as a separate editable Python project; skipping."; \
+  fi; \
   ln -sf /opt/hermes-venv/bin/hermes /usr/local/bin/hermes; \
   /opt/hermes-venv/bin/hermes version
+
+COPY patch_hermes_webui_base_path.py /tmp/patch_hermes_webui_base_path.py
+RUN set -eux; \
+  git clone --branch "${HERMES_WEBUI_REF}" --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes-webui; \
+  /opt/hermes-venv/bin/pip install --no-cache-dir -r /opt/hermes-webui/requirements.txt; \
+  /opt/hermes-venv/bin/python /tmp/patch_hermes_webui_base_path.py /opt/hermes-webui; \
+  /opt/hermes-venv/bin/python -m py_compile /opt/hermes-webui/server.py
 
 WORKDIR /app
 
@@ -168,9 +184,9 @@ RUN cd /app/dashboard && npm ci
 COPY dashboard /app/dashboard
 RUN cd /app/dashboard && npm run build
 
-COPY entrypoint.sh launch_hermes_terminal.sh launch_codex_terminal.sh launch_claude_terminal.sh launch_gemini_terminal.sh bootstrap_skills.sh reset_openclaw_state.sh capture_openclaw_baseline.sh restart_openclaw_gateway.sh brew-wrapper.sh openclaw-wrapper.sh openclaw_runtime.js configure_filebrowser.js reconcile_filebrowser_permissions.js nginx.template.conf reconcile_openclaw_state.js print_reconcile_summary.js check_reconcile_status.js check_reconcile_status.sh approve_device.js dashboard_server.js ./
+COPY entrypoint.sh launch_hermes_terminal.sh launch_codex_terminal.sh launch_claude_terminal.sh launch_gemini_terminal.sh launch_pi_terminal.sh bootstrap_skills.sh reset_openclaw_state.sh capture_openclaw_baseline.sh restart_openclaw_gateway.sh brew-wrapper.sh openclaw-wrapper.sh openclaw_runtime.js configure_filebrowser.js reconcile_filebrowser_permissions.js nginx.template.conf reconcile_openclaw_state.js print_reconcile_summary.js check_reconcile_status.js check_reconcile_status.sh approve_device.js dashboard_server.js ./
 COPY lib /app/lib
-RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_codex_terminal.sh /app/launch_claude_terminal.sh /app/launch_gemini_terminal.sh /app/bootstrap_skills.sh /app/reset_openclaw_state.sh /app/capture_openclaw_baseline.sh /app/restart_openclaw_gateway.sh /app/brew-wrapper.sh /app/openclaw-wrapper.sh /app/openclaw_runtime.js /app/print_reconcile_summary.js /app/check_reconcile_status.js /app/check_reconcile_status.sh /app/approve_device.js /app/dashboard_server.js \
+RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_codex_terminal.sh /app/launch_claude_terminal.sh /app/launch_gemini_terminal.sh /app/launch_pi_terminal.sh /app/bootstrap_skills.sh /app/reset_openclaw_state.sh /app/capture_openclaw_baseline.sh /app/restart_openclaw_gateway.sh /app/brew-wrapper.sh /app/openclaw-wrapper.sh /app/openclaw_runtime.js /app/print_reconcile_summary.js /app/check_reconcile_status.js /app/check_reconcile_status.sh /app/approve_device.js /app/dashboard_server.js \
   && ln -sf /app/approve_device.js /usr/local/bin/approve-device \
   && ln -sf /app/reset_openclaw_state.sh /usr/local/bin/reset-openclaw-state \
   && ln -sf /app/capture_openclaw_baseline.sh /usr/local/bin/capture-openclaw-baseline \
@@ -178,7 +194,7 @@ RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_codex
   && ln -sf /app/restart_openclaw_gateway.sh /usr/local/bin/restart-gateway \
   && ln -sf /app/brew-wrapper.sh /usr/local/bin/brew \
   && install -m 0755 /app/openclaw-wrapper.sh /usr/local/bin/openclaw \
-  && mkdir -p /root/.codex /root/.claude /root/.gemini \
+  && mkdir -p /root/.codex /root/.claude /root/.gemini /root/.pi \
   && test -x /opt/filebrowser/filebrowser \
   && /opt/filebrowser/filebrowser version \
   && command -v hermes >/dev/null \
@@ -186,7 +202,9 @@ RUN chmod +x /app/entrypoint.sh /app/launch_hermes_terminal.sh /app/launch_codex
   && codex --version \
   && claude --version \
   && command -v gemini >/dev/null \
-  && npm list -g @google/gemini-cli --depth=0 >/dev/null
+  && npm list -g @google/gemini-cli --depth=0 >/dev/null \
+  && pi --version \
+  && npm list -g @mariozechner/pi-coding-agent --depth=0 >/dev/null
 
 ENV PORT=8080
 ENV OPENCLAW_INTERNAL_PORT=8081
@@ -199,6 +217,8 @@ ENV FILEBROWSER_INTERNAL_PORT=8082
 ENV DASHBOARD_INTERNAL_PORT=8094
 ENV DASHBOARD_BASE_URL=/dashboard
 ENV DASHBOARD_API_BASE_URL=/dashboard-api
+ENV DASHBOARD_DATA_DIR=/data/.dashboard
+ENV DASHBOARD_PREFERENCES_PATH=/data/.dashboard/preferences.json
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV COLORTERM=truecolor
@@ -232,6 +252,16 @@ ENV HERMES_HOME=/data/.hermes
 ENV HERMES_WORKSPACE_DIR=/data/workspaces/hermes
 ENV HERMES_OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 ENV HERMES_MODEL_NAME=gemini-3-flash-preview
+ENV HERMES_WEBUI_ENABLED=0
+ENV HERMES_WEBUI_INTERNAL_PORT=8095
+ENV HERMES_WEBUI_PORT=8095
+ENV HERMES_WEBUI_BASE_URL=/hermes-webui
+ENV HERMES_WEBUI_HOST=127.0.0.1
+ENV HERMES_WEBUI_STATE_DIR=/data/.hermes/webui
+ENV HERMES_WEBUI_DEFAULT_WORKSPACE=/data/workspaces/hermes
+ENV HERMES_WEBUI_AGENT_DIR=/opt/hermes-src
+ENV HERMES_WEBUI_PYTHON=/opt/hermes-venv/bin/python
+ENV HERMES_WEBUI_INFERENCE_PROVIDER=auto
 ENV CODEX_ENABLED=1
 ENV CODEX_INTERNAL_PORT=8091
 ENV CODEX_BASE_URL=/codex
@@ -250,6 +280,13 @@ ENV GEMINI_BASE_URL=/gemini
 ENV GEMINI_SESSION_NAME=gemini
 ENV GEMINI_HOME=/data/.gemini
 ENV GEMINI_WORKSPACE_DIR=/data/workspaces/gemini
+ENV PI_ENABLED=1
+ENV PI_INTERNAL_PORT=8096
+ENV PI_BASE_URL=/pi
+ENV PI_SESSION_NAME=pi
+ENV PI_HOME=/data/.pi
+ENV PI_CODING_AGENT_DIR=/data/.pi/agent
+ENV PI_WORKSPACE_DIR=/data/workspaces/pi
 ENV TAILSCALE_STATE_DIR=/var/lib/tailscale
 ENV TAILSCALE_RUN_DIR=/var/run/tailscale
 ENV TAILSCALE_SOCKET=/var/run/tailscale/tailscaled.sock

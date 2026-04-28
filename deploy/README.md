@@ -21,7 +21,7 @@ The intended shape is:
 
 **App surface inside every tenant:**
 
-`/openclaw` · `/dashboard` · `/filebrowser` · `/terminal` · `/hermes` · `/codex` · `/claude` · `/gemini`
+`/openclaw` · `/dashboard` · `/filebrowser` · `/terminal` · `/hermes` · `/codex` · `/claude` · `/gemini` · `/pi`
 
 Traefik and Cloudflare Tunnel are first-class, but the domain, tunnel, and credentials are always user-supplied.
 
@@ -57,7 +57,7 @@ Multi-tenant routing relies on hostnames. Point those hostnames at the Traefik h
 
 Use `INGRESS_MODE=local` for several tenant instances on a private network.
 
-**Works over plain HTTP on LAN:** `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, `/gemini`
+**Works over plain HTTP on LAN:** `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, `/gemini`, `/pi`
 
 **Does NOT work over plain HTTP:** Vanilla native `/openclaw` on a non-loopback hostname. Options: put HTTPS in front of the tenant hostname, keep native `/openclaw` on localhost, or use `OPENCLAW_ACCESS_MODE=trusted-proxy`.
 

@@ -77,7 +77,7 @@ load_root_env() {
   : "${TRAEFIK_BIND_ADDRESS:=127.0.0.1}"
   : "${TRAEFIK_HTTP_PORT:=38080}"
   : "${TRAEFIK_NETWORK:=rundiffusion-public}"
-  : "${TRAEFIK_IMAGE:=traefik:v3.4}"
+  : "${TRAEFIK_IMAGE:=traefik:v3.4@sha256:06ddf61ee653caf4f4211a604e657f084f4727f762c16f826c97aafbefcb279e}"
   : "${TRAEFIK_LOG_LEVEL:=INFO}"
   : "${CLOUDFLARE_HOSTNAME_MODE:=wildcard}"
   : "${CLOUDFLARE_TUNNEL_METRICS:=127.0.0.1:20241}"
@@ -87,11 +87,16 @@ load_root_env() {
   : "${IMAGE_REPOSITORY:=local/openclaw-gateway}"
   : "${OPENCLAW_VERSION:=}"
   : "${GATEWAY_IMAGE_TAG:=}"
+  : "${NODE_IMAGE_REF:=docker.io/library/node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c}"
+  : "${FILEBROWSER_IMAGE_REF:=ghcr.io/gtsteffaniak/filebrowser:stable-slim@sha256:8e6f7d32f5f0b7a40cb3a80197ef27088f01828a132f5bfed337d77b10e0f1e2}"
   : "${CODEX_CLI_VERSION:=0.125.0}"
   : "${CLAUDE_CODE_VERSION:=2.1.119}"
   : "${GEMINI_CLI_VERSION:=0.39.1}"
-  : "${HOMEBREW_INSTALL_REF:=HEAD}"
+  : "${PI_CODING_AGENT_VERSION:=0.70.5}"
+  : "${HOMEBREW_INSTALL_REF:=d683ebc428169a5e0d60959e48a4c35d6f23ddd9}"
   : "${HOMEBREW_BREW_REF:=5.1.8}"
+  : "${HERMES_REF:=v2026.4.23}"
+  : "${HERMES_WEBUI_REF:=v0.50.236}"
   : "${DOCKER_BUILD_CONTEXT:=}"
   : "${DOCKER_BUILDER:=}"
   : "${DOCKER_BUILD_PLATFORM:=}"
@@ -119,7 +124,8 @@ load_root_env() {
   export CLOUDFLARE_TUNNEL_ID CLOUDFLARE_TUNNEL_CREDENTIALS_FILE
   export CLOUDFLARE_TUNNEL_METRICS CLOUDFLARED_LAUNCHD_LABEL
   export DEPLOY_MODE AUTO_ROLLBACK IMAGE_REPOSITORY OPENCLAW_VERSION GATEWAY_IMAGE_TAG
-  export CODEX_CLI_VERSION CLAUDE_CODE_VERSION GEMINI_CLI_VERSION HOMEBREW_INSTALL_REF HOMEBREW_BREW_REF
+  export NODE_IMAGE_REF FILEBROWSER_IMAGE_REF
+  export CODEX_CLI_VERSION CLAUDE_CODE_VERSION GEMINI_CLI_VERSION PI_CODING_AGENT_VERSION HOMEBREW_INSTALL_REF HOMEBREW_BREW_REF HERMES_REF HERMES_WEBUI_REF
   export DOCKER_BUILD_CONTEXT DOCKER_BUILDER DOCKER_BUILD_PLATFORM
   export TENANT_MEMORY_RESERVATION TENANT_MEMORY_LIMIT TENANT_PIDS_LIMIT TENANT_CONTAINER_SECURITY_PROFILE
   export MAX_ALWAYS_ON_TENANTS BACKUP_ROOT RELEASE_ROOT ROOT_ENV_FILE TENANT_REGISTRY_FILE TENANT_REGISTRY_EXAMPLE_FILE
@@ -148,7 +154,7 @@ dockerfile_default_openclaw_version() {
 validate_openclaw_version() {
   local version="$1"
   [[ "${version}" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] ||
-    die "Invalid OpenClaw version '${version}'. Use an exact version such as 2026.3.22 or 2026.3.22-beta.1"
+    die "Invalid OpenClaw version '${version}'. Use an exact version such as 2026.4.15 or 2026.4.15-beta.1"
 }
 
 openclaw_source_tag_for_version() {

@@ -68,7 +68,7 @@ Choose the track first, then use the configuration layers for that track.
 | API key injection (managed secrets) | Control-plane YAML | Deploy-time |
 | Model allowlist, primary, fallbacks | Control-plane YAML | Deploy-time |
 | Agent-to-model binding | Control-plane YAML | Deploy-time |
-| Route feature flags (Gemini, etc.) | Control-plane YAML | Deploy-time |
+| Route feature flags (Gemini, Pi, etc.) | Control-plane YAML | Deploy-time |
 | Tenant hostname and allowed origins | Tenant env file | Deploy-time |
 | Gateway token and Basic Auth | Tenant env file | Deploy-time |
 | Tool enablement (`TERMINAL_ENABLED`, etc.) | Tenant env file | Deploy-time |
@@ -125,10 +125,14 @@ This is the governance layer. One YAML file on the host centrally manages per-te
 ```yaml
 tenants:
   tenant-a:
-    openclawVersion: 2026.3.24
+    openclawVersion: 2026.4.15
     secrets:
       GEMINI_API_KEY: ""
       HERMES_OPENAI_API_KEY: ""
+      PI_OPENAI_API_KEY: ""
+      PI_ANTHROPIC_API_KEY: ""
+      PI_GEMINI_API_KEY: ""
+      PI_OPENROUTER_API_KEY: ""
     models:
       allowed:
         - openai-codex/gpt-5.4
@@ -148,6 +152,8 @@ tenants:
     routes:
       gemini:
         enabled: false
+      pi:
+        enabled: true
 ```
 
 </details>
@@ -163,6 +169,10 @@ tenants:
 | `secrets.CODEX_OPENAI_API_KEY` | Managed Codex OpenAI key |
 | `secrets.CLAUDE_ANTHROPIC_API_KEY` | Managed Claude Anthropic key |
 | `secrets.OPENROUTER_API_KEY` | Managed OpenRouter key |
+| `secrets.PI_OPENAI_API_KEY` | Managed Pi OpenAI key |
+| `secrets.PI_ANTHROPIC_API_KEY` | Managed Pi Anthropic key |
+| `secrets.PI_GEMINI_API_KEY` | Managed Pi Gemini key |
+| `secrets.PI_OPENROUTER_API_KEY` | Managed Pi OpenRouter key |
 | `models.allowed` | Tenant-wide model allowlist |
 | `models.primary` | Default model selection |
 | `models.fallbacks` | Fallback model chain |
@@ -171,6 +181,7 @@ tenants:
 | `auth.pruneUnorderedProfiles` | Remove stale OpenClaw auth profiles not referenced by the managed provider order |
 | `providers.google.hydrateAuth` | Google auth hydration behavior |
 | `routes.gemini.enabled` | Deploy-time Gemini route enable flag |
+| `routes.pi.enabled` | Deploy-time Pi route enable flag |
 
 **What the control-plane does NOT override:**
 
@@ -180,6 +191,7 @@ tenants:
 - Tailscale settings
 - Non-`main` agents
 - Codex CLI session files under `CODEX_HOME`
+- Pi session and auth files under `PI_CODING_AGENT_DIR`
 - Provider OAuth credentials that do not already exist in `/data/.openclaw/.../auth-profiles.json`
 
 `auth.order` can point OpenClaw at an existing provider profile ID already stored on disk, and
@@ -206,7 +218,9 @@ Tenant-specific identity, auth, and provider keys. Keep tenant env files outside
 | `TERMINAL_BASIC_AUTH_USERNAME` | Dashboard/terminal auth username |
 | `TERMINAL_BASIC_AUTH_PASSWORD` | Dashboard/terminal auth password |
 | `GEMINI_API_KEY` | Tenant-specific Gemini key (if not managed via control-plane) |
+| `PI_OPENAI_API_KEY` / `PI_ANTHROPIC_API_KEY` / `PI_GEMINI_API_KEY` / `PI_OPENROUTER_API_KEY` | Tenant-specific Pi provider keys (if not managed via control-plane) |
 | `OPENROUTER_API_KEY` | Tenant-specific OpenRouter key |
+| `TERMINAL_ENABLED` / `CODEX_ENABLED` / `CLAUDE_ENABLED` / `GEMINI_ENABLED` / `PI_ENABLED` | Per-tenant tool route enable flags |
 | `TAILSCALE_ENABLED` | Per-tenant Tailscale toggle |
 
 > **Exact-origin rule:** `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` must match the **exact** browser origin — including scheme, hostname, and port when the browser actually uses a non-default port. Example: `http://tenant-a.example.com:38080` when Traefik is exposed directly on port `38080`. In Cloudflare Tunnel mode, this is usually just `https://tenant-a.example.com`.
@@ -276,4 +290,4 @@ This section is the single source of truth for OpenClaw's browser origin and aut
 - **Reverse proxy with TLS termination** — nginx, Caddy, etc. in front of the service
 - **Direct certificate** — Let's Encrypt or similar, applied to the host
 
-> **LAN nuance:** Plain HTTP on LAN hostnames is fine for `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, and `/gemini`. Only vanilla native `/openclaw` requires the secure context. If you use `OPENCLAW_ACCESS_MODE=trusted-proxy`, the secure-context requirement shifts to your proxy layer.
+> **LAN nuance:** Plain HTTP on LAN hostnames is fine for `/dashboard`, `/terminal`, `/filebrowser`, `/hermes`, `/codex`, `/claude`, `/gemini`, and `/pi`. Only vanilla native `/openclaw` requires the secure context. If you use `OPENCLAW_ACCESS_MODE=trusted-proxy`, the secure-context requirement shifts to your proxy layer.

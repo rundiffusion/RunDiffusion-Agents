@@ -45,7 +45,7 @@ Optional env for sibling tools:
 
 - `GEMINI_API_KEY` or `HERMES_OPENAI_API_KEY` for `/hermes`
 - `OPENROUTER_API_KEY` for Hermes model switching
-- `CODEX_OPENAI_API_KEY`, `CLAUDE_ANTHROPIC_API_KEY`, `GEMINI_CLI_API_KEY` for pre-authenticated tool routes
+- `CODEX_OPENAI_API_KEY`, `CLAUDE_ANTHROPIC_API_KEY`, `GEMINI_CLI_API_KEY`, and `PI_*` provider keys for pre-authenticated tool routes
 
 ---
 
@@ -89,7 +89,7 @@ This command:
 - Loads `services/rundiffusion-agents/.env` when available (unless disabled)
 - Backs up `/data/.openclaw` and `/data/workspaces/openclaw`
 - Removes only OpenClaw-owned paths
-- Leaves `/data/.hermes`, `/data/.codex`, `/data/.claude`, `/data/.gemini` alone
+- Leaves `/data/.hermes`, `/data/.codex`, `/data/.claude`, `/data/.gemini`, `/data/.pi` alone
 
 Default backup root: `/data/openclaw-reset-backups/<timestamp>`
 
@@ -112,9 +112,9 @@ Copies `/data/.openclaw` and `/data/workspaces/openclaw` to `/data/openclaw-base
 
 - **Public path:** `/filebrowser`
 - **Auth:** Same proxy Basic Auth as `/terminal`
-- **Sources:** `/data`, `/data/workspaces/openclaw`, `/data/workspaces/hermes`, per-tool workspaces (`codex`, `claude`, `gemini`), `/data/tool-files`, `/app`
+- **Sources:** `/data`, `/data/workspaces/openclaw`, `/data/workspaces/hermes`, per-tool workspaces (`codex`, `claude`, `gemini`, `pi`), `/data/tool-files`, `/app`
 
-`/data/tool-files` is a browse-only aggregate view grouping: `/data/.hermes`, `/data/.codex`, `/data/.claude`, `/data/.gemini`, `/data/.openclaw`, `/data/.filebrowser`
+`/data/tool-files` is a browse-only aggregate view grouping: `/data/.hermes`, `/data/.codex`, `/data/.claude`, `/data/.gemini`, `/data/.pi`, `/data/.openclaw`, `/data/.filebrowser`
 
 </details>
 

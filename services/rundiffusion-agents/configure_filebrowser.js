@@ -99,6 +99,9 @@ function resolveFilebrowserSources(env = process.env) {
   const geminiWorkspaceDir = normalizeString(
     env.GEMINI_WORKSPACE_DIR || "/data/workspaces/gemini",
   );
+  const piWorkspaceDir = normalizeString(
+    env.PI_WORKSPACE_DIR || "/data/workspaces/pi",
+  );
   const toolFilesDir = normalizeString(env.FILEBROWSER_TOOL_FILES_DIR || "/data/tool-files");
 
   maybeAddSource(sources, seenPaths, "/data", "Deployment Data");
@@ -107,6 +110,7 @@ function resolveFilebrowserSources(env = process.env) {
   maybeAddSource(sources, seenPaths, codexWorkspaceDir, "Codex Workspace");
   maybeAddSource(sources, seenPaths, claudeWorkspaceDir, "Claude Workspace");
   maybeAddSource(sources, seenPaths, geminiWorkspaceDir, "Gemini Workspace");
+  maybeAddSource(sources, seenPaths, piWorkspaceDir, "Pi Workspace");
   maybeAddSource(sources, seenPaths, toolFilesDir, "Tool Files");
   maybeAddSource(sources, seenPaths, "/app", "Container App");
 

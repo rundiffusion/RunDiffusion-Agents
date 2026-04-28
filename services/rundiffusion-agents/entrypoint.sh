@@ -19,6 +19,8 @@ DASHBOARD_INTERNAL_PORT="${DASHBOARD_INTERNAL_PORT:-8094}"
 DASHBOARD_BIND="${DASHBOARD_BIND:-127.0.0.1}"
 DASHBOARD_BASE_URL="${DASHBOARD_BASE_URL:-/dashboard}"
 DASHBOARD_API_BASE_URL="${DASHBOARD_API_BASE_URL:-/dashboard-api}"
+DASHBOARD_DATA_DIR="${DASHBOARD_DATA_DIR:-/data/.dashboard}"
+DASHBOARD_PREFERENCES_PATH="${DASHBOARD_PREFERENCES_PATH:-${DASHBOARD_DATA_DIR}/preferences.json}"
 TERMINAL_ENABLED="${TERMINAL_ENABLED:-0}"
 TERMINAL_INTERNAL_PORT="${TERMINAL_INTERNAL_PORT:-8083}"
 TERMINAL_BASE_URL="${TERMINAL_BASE_URL:-/terminal}"
@@ -44,7 +46,19 @@ HERMES_HOME="${HERMES_HOME:-/data/.hermes}"
 HERMES_WORKSPACE_DIR="${HERMES_WORKSPACE_DIR:-/data/workspaces/hermes}"
 HERMES_OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}"
 HERMES_MODEL_NAME="${HERMES_MODEL_NAME:-gemini-3-flash-preview}"
+GEMINI_API_KEY="${GEMINI_API_KEY:-${GEMINI_CLI_API_KEY:-}}"
 HERMES_OPENAI_API_KEY="${HERMES_OPENAI_API_KEY:-${GEMINI_API_KEY:-}}"
+HERMES_WEBUI_ENABLED="${HERMES_WEBUI_ENABLED:-0}"
+HERMES_WEBUI_INTERNAL_PORT="${HERMES_WEBUI_INTERNAL_PORT:-8095}"
+HERMES_WEBUI_PORT="${HERMES_WEBUI_INTERNAL_PORT}"
+HERMES_WEBUI_BASE_URL="${HERMES_WEBUI_BASE_URL:-/hermes-webui}"
+HERMES_WEBUI_HOST="${HERMES_WEBUI_HOST:-127.0.0.1}"
+HERMES_WEBUI_STATE_DIR="${HERMES_WEBUI_STATE_DIR:-${HERMES_HOME}/webui}"
+HERMES_WEBUI_DEFAULT_WORKSPACE="${HERMES_WEBUI_DEFAULT_WORKSPACE:-${HERMES_WORKSPACE_DIR}}"
+HERMES_WEBUI_AGENT_DIR="${HERMES_WEBUI_AGENT_DIR:-/opt/hermes-src}"
+HERMES_WEBUI_PYTHON="${HERMES_WEBUI_PYTHON:-/opt/hermes-venv/bin/python}"
+HERMES_WEBUI_PASSWORD="${HERMES_WEBUI_PASSWORD:-}"
+HERMES_WEBUI_INFERENCE_PROVIDER="${HERMES_WEBUI_INFERENCE_PROVIDER:-auto}"
 CODEX_ENABLED="${CODEX_ENABLED:-1}"
 CODEX_INTERNAL_PORT="${CODEX_INTERNAL_PORT:-8091}"
 CODEX_BASE_URL="${CODEX_BASE_URL:-/codex}"
@@ -66,6 +80,17 @@ GEMINI_SESSION_NAME="${GEMINI_SESSION_NAME:-gemini}"
 GEMINI_HOME="${GEMINI_HOME:-/data/.gemini}"
 GEMINI_WORKSPACE_DIR="${GEMINI_WORKSPACE_DIR:-/data/workspaces/gemini}"
 GEMINI_CLI_API_KEY="${GEMINI_CLI_API_KEY:-}"
+PI_ENABLED="${PI_ENABLED:-1}"
+PI_INTERNAL_PORT="${PI_INTERNAL_PORT:-8096}"
+PI_BASE_URL="${PI_BASE_URL:-/pi}"
+PI_SESSION_NAME="${PI_SESSION_NAME:-pi}"
+PI_HOME="${PI_HOME:-/data/.pi}"
+PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME}/agent}"
+PI_WORKSPACE_DIR="${PI_WORKSPACE_DIR:-/data/workspaces/pi}"
+PI_OPENAI_API_KEY="${PI_OPENAI_API_KEY:-}"
+PI_ANTHROPIC_API_KEY="${PI_ANTHROPIC_API_KEY:-}"
+PI_GEMINI_API_KEY="${PI_GEMINI_API_KEY:-}"
+PI_OPENROUTER_API_KEY="${PI_OPENROUTER_API_KEY:-}"
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 TAILSCALE_ENABLED="${TAILSCALE_ENABLED:-0}"
 TAILSCALE_STATE_DIR="${TAILSCALE_STATE_DIR:-/var/lib/tailscale}"
@@ -186,9 +211,11 @@ normalize_base_url() {
 
 TERMINAL_BASE_URL="$(normalize_base_url TERMINAL_BASE_URL "${TERMINAL_BASE_URL}")"
 HERMES_BASE_URL="$(normalize_base_url HERMES_BASE_URL "${HERMES_BASE_URL}")"
+HERMES_WEBUI_BASE_URL="$(normalize_base_url HERMES_WEBUI_BASE_URL "${HERMES_WEBUI_BASE_URL}")"
 CODEX_BASE_URL="$(normalize_base_url CODEX_BASE_URL "${CODEX_BASE_URL}")"
 CLAUDE_BASE_URL="$(normalize_base_url CLAUDE_BASE_URL "${CLAUDE_BASE_URL}")"
 GEMINI_BASE_URL="$(normalize_base_url GEMINI_BASE_URL "${GEMINI_BASE_URL}")"
+PI_BASE_URL="$(normalize_base_url PI_BASE_URL "${PI_BASE_URL}")"
 DASHBOARD_BASE_URL="$(normalize_base_url DASHBOARD_BASE_URL "${DASHBOARD_BASE_URL}")"
 DASHBOARD_API_BASE_URL="$(normalize_base_url DASHBOARD_API_BASE_URL "${DASHBOARD_API_BASE_URL}")"
 
@@ -206,6 +233,8 @@ export DASHBOARD_INTERNAL_PORT
 export DASHBOARD_BIND
 export DASHBOARD_BASE_URL
 export DASHBOARD_API_BASE_URL
+export DASHBOARD_DATA_DIR
+export DASHBOARD_PREFERENCES_PATH
 export TERMINAL_BASE_URL
 export TERMINAL_ENABLED
 export TERMINAL_INTERNAL_PORT
@@ -225,6 +254,17 @@ export HERMES_WORKSPACE_DIR
 export HERMES_OPENAI_BASE_URL
 export HERMES_MODEL_NAME
 export HERMES_OPENAI_API_KEY
+export HERMES_WEBUI_ENABLED
+export HERMES_WEBUI_BASE_URL
+export HERMES_WEBUI_INTERNAL_PORT
+export HERMES_WEBUI_PORT
+export HERMES_WEBUI_HOST
+export HERMES_WEBUI_STATE_DIR
+export HERMES_WEBUI_DEFAULT_WORKSPACE
+export HERMES_WEBUI_AGENT_DIR
+export HERMES_WEBUI_PYTHON
+export HERMES_WEBUI_PASSWORD
+export HERMES_WEBUI_INFERENCE_PROVIDER
 export CODEX_ENABLED
 export CODEX_BASE_URL
 export CODEX_INTERNAL_PORT
@@ -245,7 +285,19 @@ export GEMINI_INTERNAL_PORT
 export GEMINI_SESSION_NAME
 export GEMINI_HOME
 export GEMINI_WORKSPACE_DIR
+export GEMINI_API_KEY
 export GEMINI_CLI_API_KEY
+export PI_ENABLED
+export PI_BASE_URL
+export PI_INTERNAL_PORT
+export PI_SESSION_NAME
+export PI_HOME
+export PI_CODING_AGENT_DIR
+export PI_WORKSPACE_DIR
+export PI_OPENAI_API_KEY
+export PI_ANTHROPIC_API_KEY
+export PI_GEMINI_API_KEY
+export PI_OPENROUTER_API_KEY
 export OPENROUTER_API_KEY
 export TAILSCALE_SOCKET
 export TAILSCALE_STATE_DIR
@@ -274,12 +326,18 @@ mkdir -p \
   "${OPENCLAW_WORKSPACE_DIR}/skills" \
   "${HERMES_HOME}" \
   "${HERMES_WORKSPACE_DIR}" \
+  "${HERMES_WEBUI_STATE_DIR}" \
+  "${HERMES_WEBUI_DEFAULT_WORKSPACE}" \
   "${CODEX_HOME}" \
   "${CODEX_WORKSPACE_DIR}" \
   "${CLAUDE_HOME}" \
   "${CLAUDE_WORKSPACE_DIR}" \
   "${GEMINI_HOME}" \
   "${GEMINI_WORKSPACE_DIR}" \
+  "${PI_HOME}" \
+  "${PI_CODING_AGENT_DIR}" \
+  "${PI_WORKSPACE_DIR}" \
+  "${DASHBOARD_DATA_DIR}" \
   "${FILEBROWSER_DATA_DIR}" \
   "${FILEBROWSER_CACHE_DIR}" \
   "${FILEBROWSER_TOOL_FILES_DIR}" \
@@ -291,11 +349,15 @@ chmod 700 \
   "${OPENCLAW_MAIN_AGENT_STATE_DIR}" \
   "${OPENCLAW_MAIN_AGENT_SESSION_DIR}" \
   "${HERMES_HOME}" \
+  "${HERMES_WEBUI_STATE_DIR}" \
   "${CODEX_HOME}" \
   "${CLAUDE_HOME}" \
-  "${GEMINI_HOME}" || true
+  "${GEMINI_HOME}" \
+  "${PI_HOME}" \
+  "${PI_CODING_AGENT_DIR}" \
+  "${DASHBOARD_DATA_DIR}" || true
 
-for workspace_dir in "${CODEX_WORKSPACE_DIR}" "${CLAUDE_WORKSPACE_DIR}" "${GEMINI_WORKSPACE_DIR}"; do
+for workspace_dir in "${CODEX_WORKSPACE_DIR}" "${CLAUDE_WORKSPACE_DIR}" "${GEMINI_WORKSPACE_DIR}" "${PI_WORKSPACE_DIR}"; do
   remove_workspace_shortcut_if_symlink "${workspace_dir}" "openclaw-workspace"
   remove_workspace_shortcut_if_symlink "${workspace_dir}" "hermes-workspace"
 done
@@ -304,18 +366,23 @@ ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "Hermes Home" "${HERME
 ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "Codex Home" "${CODEX_HOME}"
 ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "Claude Home" "${CLAUDE_HOME}"
 ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "Gemini Home" "${GEMINI_HOME}"
+ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "Pi Home" "${PI_HOME}"
 ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "OpenClaw State" "${OPENCLAW_STATE_DIR}"
 ensure_directory_shortcut "${FILEBROWSER_TOOL_FILES_DIR}" "FileBrowser State" "${FILEBROWSER_DATA_DIR}"
 
 ensure_visible_directory_readme "${OPENCLAW_WORKSPACE_DIR}" "OpenClaw Workspace"
 ensure_visible_directory_readme "${HERMES_WORKSPACE_DIR}" "Hermes Workspace"
+ensure_visible_directory_readme "${HERMES_WEBUI_DEFAULT_WORKSPACE}" "Hermes WebUI Workspace"
 ensure_visible_directory_readme "${CODEX_WORKSPACE_DIR}" "Codex Workspace"
 ensure_visible_directory_readme "${CLAUDE_WORKSPACE_DIR}" "Claude Workspace"
 ensure_visible_directory_readme "${GEMINI_WORKSPACE_DIR}" "Gemini Workspace"
+ensure_visible_directory_readme "${PI_WORKSPACE_DIR}" "Pi Workspace"
 ensure_visible_directory_readme "${HERMES_HOME}" "Hermes Home"
+ensure_visible_directory_readme "${HERMES_WEBUI_STATE_DIR}" "Hermes WebUI State"
 ensure_visible_directory_readme "${CODEX_HOME}" "Codex Home"
 ensure_visible_directory_readme "${CLAUDE_HOME}" "Claude Home"
 ensure_visible_directory_readme "${GEMINI_HOME}" "Gemini Home"
+ensure_visible_directory_readme "${PI_HOME}" "Pi Home"
 
 TOKEN_PATH="${OPENCLAW_STATE_DIR}/gateway.token"
 
@@ -350,6 +417,10 @@ hermes_enabled() {
   is_true "${HERMES_ENABLED}"
 }
 
+hermes_webui_enabled() {
+  is_true "${HERMES_WEBUI_ENABLED}"
+}
+
 codex_enabled() {
   is_true "${CODEX_ENABLED}"
 }
@@ -362,6 +433,10 @@ gemini_enabled() {
   is_true "${GEMINI_ENABLED}"
 }
 
+pi_enabled() {
+  is_true "${PI_ENABLED}"
+}
+
 gateway_prewarm_enabled() {
   is_true "${OPENCLAW_PREWARM_ENABLED}"
 }
@@ -371,7 +446,7 @@ tailscale_enabled() {
 }
 
 operator_tty_enabled() {
-  terminal_enabled || hermes_enabled || codex_enabled || claude_enabled || gemini_enabled
+  terminal_enabled || hermes_enabled || codex_enabled || claude_enabled || gemini_enabled || pi_enabled
 }
 
 resolve_openclaw_access_mode() {
@@ -638,6 +713,37 @@ validate_terminal_config() {
     route_sessions+=("${HERMES_SESSION_NAME}")
   fi
 
+  if hermes_webui_enabled && [[ "${HERMES_WEBUI_BASE_URL}" == "/" ]]; then
+    echo "[entrypoint] HERMES_WEBUI_BASE_URL cannot be / when HERMES_WEBUI_ENABLED=1."
+    exit 1
+  fi
+
+  if hermes_webui_enabled; then
+    assert_unique_internal_port \
+      "HERMES_WEBUI_INTERNAL_PORT" \
+      "${HERMES_WEBUI_INTERNAL_PORT}" \
+      "${OPENCLAW_INTERNAL_PORT}" \
+      "${FILEBROWSER_INTERNAL_PORT}" \
+      "${TERMINAL_INTERNAL_PORT}" \
+      "${HERMES_INTERNAL_PORT}" \
+      "${CODEX_INTERNAL_PORT}" \
+      "${CLAUDE_INTERNAL_PORT}" \
+      "${GEMINI_INTERNAL_PORT}" \
+      "${PI_INTERNAL_PORT}"
+
+    assert_unique_base_url \
+      "HERMES_WEBUI_BASE_URL" \
+      "${HERMES_WEBUI_BASE_URL}" \
+      "/openclaw" \
+      "${FILEBROWSER_BASE_URL}" \
+      "${TERMINAL_BASE_URL}" \
+      "${HERMES_BASE_URL}" \
+      "${CODEX_BASE_URL}" \
+      "${CLAUDE_BASE_URL}" \
+      "${GEMINI_BASE_URL}" \
+      "${PI_BASE_URL}"
+  fi
+
   if codex_enabled && [[ "${CODEX_BASE_URL}" == "/" ]]; then
     echo "[entrypoint] CODEX_BASE_URL cannot be / when CODEX_ENABLED=1."
     exit 1
@@ -674,6 +780,18 @@ validate_terminal_config() {
     route_sessions+=("${GEMINI_SESSION_NAME}")
   fi
 
+  if pi_enabled && [[ "${PI_BASE_URL}" == "/" ]]; then
+    echo "[entrypoint] PI_BASE_URL cannot be / when PI_ENABLED=1."
+    exit 1
+  fi
+
+  if pi_enabled; then
+    route_labels+=("PI")
+    route_ports+=("${PI_INTERNAL_PORT}")
+    route_base_urls+=("${PI_BASE_URL}")
+    route_sessions+=("${PI_SESSION_NAME}")
+  fi
+
   validate_unique_operator_routes route_labels route_ports route_base_urls route_sessions
 }
 
@@ -700,9 +818,11 @@ validate_dashboard_config() {
     "${FILEBROWSER_INTERNAL_PORT}" \
     "${TERMINAL_INTERNAL_PORT}" \
     "${HERMES_INTERNAL_PORT}" \
+    "${HERMES_WEBUI_INTERNAL_PORT}" \
     "${CODEX_INTERNAL_PORT}" \
     "${CLAUDE_INTERNAL_PORT}" \
-    "${GEMINI_INTERNAL_PORT}"
+    "${GEMINI_INTERNAL_PORT}" \
+    "${PI_INTERNAL_PORT}"
 
   assert_unique_base_url \
     "DASHBOARD_BASE_URL" \
@@ -711,9 +831,11 @@ validate_dashboard_config() {
     "${FILEBROWSER_BASE_URL}" \
     "${TERMINAL_BASE_URL}" \
     "${HERMES_BASE_URL}" \
+    "${HERMES_WEBUI_BASE_URL}" \
     "${CODEX_BASE_URL}" \
     "${CLAUDE_BASE_URL}" \
-    "${GEMINI_BASE_URL}"
+    "${GEMINI_BASE_URL}" \
+    "${PI_BASE_URL}"
 
   assert_unique_base_url \
     "DASHBOARD_API_BASE_URL" \
@@ -722,14 +844,16 @@ validate_dashboard_config() {
     "${FILEBROWSER_BASE_URL}" \
     "${TERMINAL_BASE_URL}" \
     "${HERMES_BASE_URL}" \
+    "${HERMES_WEBUI_BASE_URL}" \
     "${CODEX_BASE_URL}" \
     "${CLAUDE_BASE_URL}" \
     "${GEMINI_BASE_URL}" \
+    "${PI_BASE_URL}" \
     "${DASHBOARD_BASE_URL}"
 }
 
 write_nginx_config() {
-  local esc_public_port esc_openclaw_port esc_filebrowser_port esc_dashboard_port esc_dashboard_base_url esc_dashboard_api_base_url esc_terminal_port esc_terminal_base_url esc_hermes_port esc_hermes_base_url esc_codex_port esc_codex_base_url esc_claude_port esc_claude_base_url esc_gemini_port esc_gemini_base_url terminal_enabled_flag hermes_enabled_flag codex_enabled_flag claude_enabled_flag gemini_enabled_flag
+  local esc_public_port esc_openclaw_port esc_filebrowser_port esc_dashboard_port esc_dashboard_base_url esc_dashboard_api_base_url esc_terminal_port esc_terminal_base_url esc_hermes_port esc_hermes_base_url esc_hermes_webui_port esc_hermes_webui_base_url esc_codex_port esc_codex_base_url esc_claude_port esc_claude_base_url esc_gemini_port esc_gemini_base_url esc_pi_port esc_pi_base_url terminal_enabled_flag hermes_enabled_flag hermes_webui_enabled_flag codex_enabled_flag claude_enabled_flag gemini_enabled_flag pi_enabled_flag
   esc_public_port="$(escape_sed "${PORT}")"
   esc_openclaw_port="$(escape_sed "${OPENCLAW_INTERNAL_PORT}")"
   esc_filebrowser_port="$(escape_sed "${FILEBROWSER_INTERNAL_PORT}")"
@@ -740,12 +864,16 @@ write_nginx_config() {
   esc_terminal_base_url="$(escape_sed "${TERMINAL_BASE_URL}")"
   esc_hermes_port="$(escape_sed "${HERMES_INTERNAL_PORT}")"
   esc_hermes_base_url="$(escape_sed "${HERMES_BASE_URL}")"
+  esc_hermes_webui_port="$(escape_sed "${HERMES_WEBUI_INTERNAL_PORT}")"
+  esc_hermes_webui_base_url="$(escape_sed "${HERMES_WEBUI_BASE_URL}")"
   esc_codex_port="$(escape_sed "${CODEX_INTERNAL_PORT}")"
   esc_codex_base_url="$(escape_sed "${CODEX_BASE_URL}")"
   esc_claude_port="$(escape_sed "${CLAUDE_INTERNAL_PORT}")"
   esc_claude_base_url="$(escape_sed "${CLAUDE_BASE_URL}")"
   esc_gemini_port="$(escape_sed "${GEMINI_INTERNAL_PORT}")"
   esc_gemini_base_url="$(escape_sed "${GEMINI_BASE_URL}")"
+  esc_pi_port="$(escape_sed "${PI_INTERNAL_PORT}")"
+  esc_pi_base_url="$(escape_sed "${PI_BASE_URL}")"
   if terminal_enabled; then
     terminal_enabled_flag="1"
   else
@@ -755,6 +883,11 @@ write_nginx_config() {
     hermes_enabled_flag="1"
   else
     hermes_enabled_flag="0"
+  fi
+  if hermes_webui_enabled; then
+    hermes_webui_enabled_flag="1"
+  else
+    hermes_webui_enabled_flag="0"
   fi
   if codex_enabled; then
     codex_enabled_flag="1"
@@ -771,6 +904,11 @@ write_nginx_config() {
   else
     gemini_enabled_flag="0"
   fi
+  if pi_enabled; then
+    pi_enabled_flag="1"
+  else
+    pi_enabled_flag="0"
+  fi
 
   sed \
     -e "s|__PUBLIC_PORT__|${esc_public_port}|g" \
@@ -785,6 +923,9 @@ write_nginx_config() {
     -e "s|__HERMES_INTERNAL_PORT__|${esc_hermes_port}|g" \
     -e "s|__HERMES_BASE_URL__|${esc_hermes_base_url}|g" \
     -e "s|__HERMES_ENABLED__|${hermes_enabled_flag}|g" \
+    -e "s|__HERMES_WEBUI_INTERNAL_PORT__|${esc_hermes_webui_port}|g" \
+    -e "s|__HERMES_WEBUI_BASE_URL__|${esc_hermes_webui_base_url}|g" \
+    -e "s|__HERMES_WEBUI_ENABLED__|${hermes_webui_enabled_flag}|g" \
     -e "s|__CODEX_INTERNAL_PORT__|${esc_codex_port}|g" \
     -e "s|__CODEX_BASE_URL__|${esc_codex_base_url}|g" \
     -e "s|__CODEX_ENABLED__|${codex_enabled_flag}|g" \
@@ -794,6 +935,9 @@ write_nginx_config() {
     -e "s|__GEMINI_INTERNAL_PORT__|${esc_gemini_port}|g" \
     -e "s|__GEMINI_BASE_URL__|${esc_gemini_base_url}|g" \
     -e "s|__GEMINI_ENABLED__|${gemini_enabled_flag}|g" \
+    -e "s|__PI_INTERNAL_PORT__|${esc_pi_port}|g" \
+    -e "s|__PI_BASE_URL__|${esc_pi_base_url}|g" \
+    -e "s|__PI_ENABLED__|${pi_enabled_flag}|g" \
     /app/nginx.template.conf > "${NGINX_CONFIG_PATH}"
 }
 
@@ -947,6 +1091,42 @@ ensure_gemini_session() {
   ensure_tmux_session "Gemini" "${GEMINI_SESSION_NAME}" "${GEMINI_WORKSPACE_DIR}" "/app/launch_gemini_terminal.sh"
 }
 
+ensure_pi_session() {
+  if ! pi_enabled; then
+    return 0
+  fi
+
+  ensure_tmux_session "Pi" "${PI_SESSION_NAME}" "${PI_WORKSPACE_DIR}" "/app/launch_pi_terminal.sh"
+}
+
+start_hermes_webui() {
+  if ! hermes_webui_enabled; then
+    echo "[entrypoint] Hermes WebUI route disabled."
+    return 0
+  fi
+
+  if [[ ! -f /opt/hermes-webui/server.py ]]; then
+    echo "[entrypoint] Hermes WebUI is enabled but /opt/hermes-webui/server.py is missing."
+    exit 1
+  fi
+
+  echo "[entrypoint] Starting Hermes WebUI on internal port ${HERMES_WEBUI_INTERNAL_PORT}${HERMES_WEBUI_BASE_URL}"
+  (
+    cd /opt/hermes-webui
+    export HERMES_HOME
+    export OPENAI_BASE_URL="${HERMES_OPENAI_BASE_URL}"
+    export OPENAI_API_KEY="${HERMES_OPENAI_API_KEY}"
+    export OPENROUTER_API_KEY
+    export HERMES_MODEL="${HERMES_MODEL_NAME}"
+    export LLM_MODEL="${HERMES_MODEL_NAME}"
+    export HERMES_INFERENCE_PROVIDER="${HERMES_WEBUI_INFERENCE_PROVIDER}"
+    export TERMINAL_ENV=local
+    export TERMINAL_CWD="${HERMES_WEBUI_DEFAULT_WORKSPACE}"
+    exec "${HERMES_WEBUI_PYTHON}" /opt/hermes-webui/server.py
+  ) &
+  HERMES_WEBUI_PID=$!
+}
+
 configure_tmux_server() {
   tmux set-option -g default-terminal "tmux-256color"
   tmux set-option -g terminal-overrides ",${TTYD_TERMINAL_TYPE}:RGB,tmux-256color:RGB,screen-256color:RGB"
@@ -1040,6 +1220,10 @@ if gemini_enabled && [[ -z "${GEMINI_CLI_API_KEY:-}" ]]; then
   echo "[entrypoint] Gemini is enabled without GEMINI_CLI_API_KEY; /gemini will expect interactive login until the user authenticates."
 fi
 
+if pi_enabled && [[ -z "${PI_OPENAI_API_KEY:-}${PI_ANTHROPIC_API_KEY:-}${PI_GEMINI_API_KEY:-}${PI_OPENROUTER_API_KEY:-}" ]]; then
+  echo "[entrypoint] Pi is enabled without PI_* provider keys; /pi will expect interactive login until the user authenticates."
+fi
+
 start_tailscale
 write_proxy_auth_config
 write_nginx_config
@@ -1049,15 +1233,18 @@ ensure_hermes_session
 ensure_codex_session
 ensure_claude_session
 ensure_gemini_session
+ensure_pi_session
 
 OPENCLAW_PID=""
 FILEBROWSER_PID=""
 DASHBOARD_PID=""
 TERMINAL_PID=""
 HERMES_PID=""
+HERMES_WEBUI_PID=""
 CODEX_PID=""
 CLAUDE_PID=""
 GEMINI_PID=""
+PI_PID=""
 NGINX_PID=""
 HEALTH_MONITOR_PID=""
 
@@ -1067,7 +1254,7 @@ cleanup() {
 
   clear_gateway_ready_file
 
-  for pid in "${HEALTH_MONITOR_PID:-}" "${NGINX_PID:-}" "${GEMINI_PID:-}" "${CLAUDE_PID:-}" "${CODEX_PID:-}" "${HERMES_PID:-}" "${TERMINAL_PID:-}" "${DASHBOARD_PID:-}" "${FILEBROWSER_PID:-}" "${OPENCLAW_PID:-}" "${TAILSCALE_PID:-}"; do
+  for pid in "${HEALTH_MONITOR_PID:-}" "${NGINX_PID:-}" "${PI_PID:-}" "${GEMINI_PID:-}" "${CLAUDE_PID:-}" "${CODEX_PID:-}" "${HERMES_WEBUI_PID:-}" "${HERMES_PID:-}" "${TERMINAL_PID:-}" "${DASHBOARD_PID:-}" "${FILEBROWSER_PID:-}" "${OPENCLAW_PID:-}" "${TAILSCALE_PID:-}"; do
     if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
       kill "${pid}" 2>/dev/null || true
     fi
@@ -1093,6 +1280,8 @@ FILEBROWSER_PID=$!
 echo "[entrypoint] Starting dashboard server on internal port ${DASHBOARD_INTERNAL_PORT}${DASHBOARD_BASE_URL}"
 node /app/dashboard_server.js &
 DASHBOARD_PID=$!
+
+start_hermes_webui
 
 start_ttyd_route() {
   local enabled_fn="$1"
@@ -1141,11 +1330,16 @@ start_ttyd_route hermes_enabled HERMES_PID "Hermes" "${HERMES_INTERNAL_PORT}" "$
 start_ttyd_route codex_enabled CODEX_PID "Codex" "${CODEX_INTERNAL_PORT}" "${CODEX_BASE_URL}" "${CODEX_SESSION_NAME}" "$(build_tty_title "Codex")" "[entrypoint] Codex route disabled."
 start_ttyd_route claude_enabled CLAUDE_PID "Claude" "${CLAUDE_INTERNAL_PORT}" "${CLAUDE_BASE_URL}" "${CLAUDE_SESSION_NAME}" "$(build_tty_title "Claude")" "[entrypoint] Claude route disabled."
 start_ttyd_route gemini_enabled GEMINI_PID "Gemini" "${GEMINI_INTERNAL_PORT}" "${GEMINI_BASE_URL}" "${GEMINI_SESSION_NAME}" "$(build_tty_title "Gemini")" "[entrypoint] Gemini route disabled."
+start_ttyd_route pi_enabled PI_PID "Pi" "${PI_INTERNAL_PORT}" "${PI_BASE_URL}" "${PI_SESSION_NAME}" "$(build_tty_title "Pi")" "[entrypoint] Pi route disabled."
 
 wait_for_tcp_listener "OpenClaw gateway" "${OPENCLAW_INTERNAL_PORT}"
 wait_for_tcp_listener "FileBrowser Quantum" "${FILEBROWSER_INTERNAL_PORT}"
 reconcile_filebrowser_permissions
 wait_for_tcp_listener "dashboard server" "${DASHBOARD_INTERNAL_PORT}"
+
+if hermes_webui_enabled; then
+  wait_for_tcp_listener "Hermes WebUI" "${HERMES_WEBUI_INTERNAL_PORT}"
+fi
 
 if terminal_enabled; then
   wait_for_tcp_listener "terminal ttyd" "${TERMINAL_INTERNAL_PORT}"
@@ -1167,6 +1361,10 @@ if gemini_enabled; then
   wait_for_tcp_listener "Gemini ttyd" "${GEMINI_INTERNAL_PORT}"
 fi
 
+if pi_enabled; then
+  wait_for_tcp_listener "Pi ttyd" "${PI_INTERNAL_PORT}"
+fi
+
 wait_for_gateway_rpc_ready
 write_gateway_ready_file
 echo "[entrypoint] Gateway readiness file written to ${GATEWAY_READY_FILE}"
@@ -1178,6 +1376,9 @@ nginx -c "${NGINX_CONFIG_PATH}" -g 'daemon off;' &
 NGINX_PID=$!
 
 WAIT_PIDS=("${FILEBROWSER_PID}" "${DASHBOARD_PID}" "${NGINX_PID}" "${HEALTH_MONITOR_PID}")
+if [[ -n "${HERMES_WEBUI_PID}" ]]; then
+  WAIT_PIDS=("${HERMES_WEBUI_PID}" "${WAIT_PIDS[@]}")
+fi
 if is_true "${OPENCLAW_NO_RESPAWN}"; then
   WAIT_PIDS=("${OPENCLAW_PID}" "${WAIT_PIDS[@]}")
 else
@@ -1186,7 +1387,7 @@ fi
 if [[ -n "${TAILSCALE_PID}" ]]; then
   WAIT_PIDS=("${TAILSCALE_PID}" "${WAIT_PIDS[@]}")
 fi
-for pid in "${TERMINAL_PID}" "${HERMES_PID}" "${CODEX_PID}" "${CLAUDE_PID}" "${GEMINI_PID}"; do
+for pid in "${TERMINAL_PID}" "${HERMES_PID}" "${CODEX_PID}" "${CLAUDE_PID}" "${GEMINI_PID}" "${PI_PID}"; do
   if [[ -n "${pid}" ]]; then
     WAIT_PIDS+=("${pid}")
   fi

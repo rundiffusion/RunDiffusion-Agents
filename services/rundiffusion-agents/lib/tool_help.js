@@ -90,7 +90,7 @@ function buildToolHelp() {
           title: "Shell basics",
           tips: [
             "Run `ls` to inspect the current directory before changing workspaces.",
-            "Use `cd <path>` to move between the OpenClaw, Hermes, Codex, Claude, and Gemini workspaces.",
+            "Use `cd <path>` to move between the OpenClaw, Hermes, Codex, Claude, Gemini CLI, and Pi workspaces.",
             "After exiting a CLI tool, relaunch it from the shell with its command name.",
           ],
           commands: [
@@ -107,6 +107,7 @@ function buildToolHelp() {
           "/data/workspaces/codex",
           "/data/workspaces/claude",
           "/data/workspaces/gemini",
+          "/data/workspaces/pi",
         ]),
         {
           title: "Launch an AI CLI from the shell",
@@ -117,12 +118,13 @@ function buildToolHelp() {
             buildCommand("Start Codex", "codex", "Launches the Codex CLI from the current shell."),
             buildCommand("Start Claude Code", "claude", "Launches Claude Code from the current shell."),
             buildCommand("Start Gemini CLI", "gemini", "Launches Gemini CLI from the current shell."),
+            buildCommand("Start Pi", "pi", "Launches Pi from the current shell."),
           ],
         },
       ],
     },
     hermes: {
-      title: "Hermes helper",
+      title: "Hermes CLI helper",
       description: "Hermes starts inside its own terminal session and falls back to a shell when you exit, so you can move around and relaunch it without leaving the route.",
       sections: [
         buildBrowserControlsSection(),
@@ -154,6 +156,25 @@ function buildToolHelp() {
         ]),
       ],
     },
+    hermesWebui: {
+      title: "Hermes WebUI helper",
+      description: "Hermes WebUI uses the same Hermes home and workspace as the terminal route, but gives you sessions, tasks, memory, skills, and files in a browser-native interface.",
+      sections: [
+        {
+          title: "Shared state",
+          tips: [
+            "The WebUI reads and writes `/data/.hermes` for Hermes state.",
+            "The default workspace is `/data/workspaces/hermes`.",
+            "Use the Hermes terminal if you need the raw CLI in the same workspace.",
+          ],
+        },
+        buildDirectorySection("Common directories", "These paths are shared with the dedicated Hermes terminal.", [
+          "/data/.hermes",
+          "/data/.hermes/webui",
+          "/data/workspaces/hermes",
+        ]),
+      ],
+    },
     codex: buildCliWorkspaceHelp({
       toolLabel: "Codex",
       workspaceDir: "/data/workspaces/codex",
@@ -161,15 +182,21 @@ function buildToolHelp() {
       shortcutDirectories: ["openclaw-workspace", "hermes-workspace"],
     }),
     claude: buildCliWorkspaceHelp({
-      toolLabel: "Claude",
+      toolLabel: "Claude Code",
       workspaceDir: "/data/workspaces/claude",
       relaunchCommand: "claude",
       shortcutDirectories: ["openclaw-workspace", "hermes-workspace"],
     }),
     gemini: buildCliWorkspaceHelp({
-      toolLabel: "Gemini",
+      toolLabel: "Gemini CLI",
       workspaceDir: "/data/workspaces/gemini",
       relaunchCommand: "gemini",
+      shortcutDirectories: ["openclaw-workspace", "hermes-workspace"],
+    }),
+    pi: buildCliWorkspaceHelp({
+      toolLabel: "Pi",
+      workspaceDir: "/data/workspaces/pi",
+      relaunchCommand: "pi",
       shortcutDirectories: ["openclaw-workspace", "hermes-workspace"],
     }),
   };

@@ -12,9 +12,23 @@ const { envFlagEnabled } = require("./lib/utils");
 const DEFAULT_DASHBOARD_BASE_URL = "/dashboard";
 const DEFAULT_API_BASE_URL = "/dashboard-api";
 const DEFAULT_DASHBOARD_PORT = 8094;
+const DEFAULT_DASHBOARD_DATA_DIR = "/data/.dashboard";
 const DEFAULT_STATIC_DIR = path.join(__dirname, "dashboard", "dist");
 const BRAND_NAME = "Run";
 const TITLE_SUFFIX = "RunDiffusion Agents";
+const DEFAULT_TOOL_ORDER = Object.freeze([
+  "openclaw",
+  "hermes-webui",
+  "terminal",
+  "hermes",
+  "pi",
+  "codex",
+  "gemini",
+  "claude",
+  "filebrowser",
+]);
+const PI_DESCRIPTION =
+  "A minimal, extensible terminal coding harness you can shape with TypeScript extensions, skills, prompt templates, themes, packages, and interactive, print/JSON, RPC, or SDK modes.";
 
 function normalizeBaseUrl(label, value) {
   const text = String(value || "").trim();
@@ -32,6 +46,14 @@ function normalizeText(value, fallback = "") {
 
 function tenantLabelFromEnv(env = process.env) {
   return normalizeText(env.TENANT_SLUG, normalizeText(env.TERMINAL_BASIC_AUTH_USERNAME, "operator"));
+}
+
+function resolveDashboardDataDir(env = process.env) {
+  return normalizeText(env.DASHBOARD_DATA_DIR, DEFAULT_DASHBOARD_DATA_DIR);
+}
+
+function resolveDashboardPreferencesPath(env = process.env) {
+  return normalizeText(env.DASHBOARD_PREFERENCES_PATH, path.join(resolveDashboardDataDir(env), "preferences.json"));
 }
 
 function stripAnsi(value) {
@@ -79,30 +101,105 @@ function approvePendingRequest(requestId, env = process.env) {
   };
 }
 
+function sanitizeToolOrder(value, defaultOrder = DEFAULT_TOOL_ORDER) {
+  const knownIds = new Set(defaultOrder);
+  const seenIds = new Set();
+  const orderedIds = [];
+  const candidates = Array.isArray(value) ? value : [];
+
+  for (const candidate of candidates) {
+    const id = String(candidate || "").trim();
+    if (!knownIds.has(id) || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    orderedIds.push(id);
+  }
+
+  for (const id of defaultOrder) {
+    if (!seenIds.has(id)) {
+      orderedIds.push(id);
+    }
+  }
+
+  return orderedIds;
+}
+
+function readDashboardPreferences(env = process.env) {
+  const preferencesPath = resolveDashboardPreferencesPath(env);
+
+  try {
+    const rawPreferences = JSON.parse(fs.readFileSync(preferencesPath, "utf8"));
+    return {
+      toolOrder: sanitizeToolOrder(rawPreferences?.toolOrder),
+      defaultToolOrder: [...DEFAULT_TOOL_ORDER],
+    };
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      console.warn(`[dashboard] ignoring unreadable preferences at ${preferencesPath}: ${error.message}`);
+    }
+  }
+
+  return {
+    toolOrder: [...DEFAULT_TOOL_ORDER],
+    defaultToolOrder: [...DEFAULT_TOOL_ORDER],
+  };
+}
+
+function writeJsonAtomic(filePath, payload) {
+  const outputPath = path.resolve(filePath);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+  const tempPath = path.join(
+    path.dirname(outputPath),
+    `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp`,
+  );
+  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tempPath, outputPath);
+}
+
+function saveDashboardPreferences(payload, env = process.env) {
+  const preferences = {
+    toolOrder: sanitizeToolOrder(payload?.toolOrder),
+    defaultToolOrder: [...DEFAULT_TOOL_ORDER],
+  };
+  writeJsonAtomic(resolveDashboardPreferencesPath(env), { toolOrder: preferences.toolOrder });
+  return preferences;
+}
+
+function orderedTools(tools, toolOrder) {
+  const indexById = new Map(toolOrder.map((id, index) => [id, index]));
+  return [...tools].sort((left, right) => {
+    const leftIndex = indexById.has(left.id) ? indexById.get(left.id) : Number.MAX_SAFE_INTEGER;
+    const rightIndex = indexById.has(right.id) ? indexById.get(right.id) : Number.MAX_SAFE_INTEGER;
+    if (leftIndex !== rightIndex) {
+      return leftIndex - rightIndex;
+    }
+    return left.label.localeCompare(right.label);
+  });
+}
+
 function buildDashboardConfig(env = process.env) {
   const filebrowserBaseUrl = normalizeBaseUrl("FILEBROWSER_BASE_URL", env.FILEBROWSER_BASE_URL || "/filebrowser");
   const terminalBaseUrl = normalizeBaseUrl("TERMINAL_BASE_URL", env.TERMINAL_BASE_URL || "/terminal");
   const hermesBaseUrl = normalizeBaseUrl("HERMES_BASE_URL", env.HERMES_BASE_URL || "/hermes");
+  const hermesWebuiBaseUrl = normalizeBaseUrl(
+    "HERMES_WEBUI_BASE_URL",
+    env.HERMES_WEBUI_BASE_URL || "/hermes-webui",
+  );
   const codexBaseUrl = normalizeBaseUrl("CODEX_BASE_URL", env.CODEX_BASE_URL || "/codex");
   const claudeBaseUrl = normalizeBaseUrl("CLAUDE_BASE_URL", env.CLAUDE_BASE_URL || "/claude");
   const geminiBaseUrl = normalizeBaseUrl("GEMINI_BASE_URL", env.GEMINI_BASE_URL || "/gemini");
+  const piBaseUrl = normalizeBaseUrl("PI_BASE_URL", env.PI_BASE_URL || "/pi");
   const dashboardBaseUrl = normalizeBaseUrl("DASHBOARD_BASE_URL", env.DASHBOARD_BASE_URL || DEFAULT_DASHBOARD_BASE_URL);
   const apiBaseUrl = normalizeBaseUrl("DASHBOARD_API_BASE_URL", env.DASHBOARD_API_BASE_URL || DEFAULT_API_BASE_URL);
   const openclawAccessMode = String(env.OPENCLAW_ACCESS_MODE || "native").trim().toLowerCase() || "native";
   const tenantLabel = tenantLabelFromEnv(env);
   const toolHelp = buildToolHelp();
-
-  return {
-    brandName: BRAND_NAME,
-    titleSuffix: TITLE_SUFFIX,
-    tenantLabel,
-    title: "Dashboard",
-    subtitle:
-      "Your Agent Farm control plane for OpenClaw, Codex, Claude, Gemini, Hermes, and the recovery tools that keep them healthy.",
-    dashboardBaseUrl,
-    apiBaseUrl,
-    openclawAccessMode,
-    tools: [
+  const preferences = readDashboardPreferences(env);
+  const tools = orderedTools(
+    [
       {
         id: "openclaw",
         label: "OpenClaw",
@@ -114,12 +211,21 @@ function buildDashboardConfig(env = process.env) {
       },
       {
         id: "hermes",
-        label: "Hermes",
-        tabTitle: "Hermes",
+        label: "Hermes CLI",
+        tabTitle: "Hermes CLI",
         description: "Dedicated Hermes terminal session.",
         path: hermesBaseUrl,
         enabled: envFlagEnabled(env.HERMES_ENABLED ?? "1"),
         help: toolHelp.hermes,
+      },
+      {
+        id: "hermes-webui",
+        label: "Hermes WebUI",
+        tabTitle: "Hermes WebUI",
+        description: "Browser-native Hermes chat, sessions, memory, tasks, skills, and workspace files.",
+        path: hermesWebuiBaseUrl,
+        enabled: envFlagEnabled(env.HERMES_WEBUI_ENABLED ?? "0"),
+        help: toolHelp.hermesWebui,
       },
       {
         id: "terminal",
@@ -132,8 +238,8 @@ function buildDashboardConfig(env = process.env) {
       },
       {
         id: "filebrowser",
-        label: "FileBrowser",
-        tabTitle: "FileBrowser",
+        label: "Filebrowser",
+        tabTitle: "Filebrowser",
         description: "Browse deployment data and tool workspaces.",
         path: filebrowserBaseUrl,
         enabled: true,
@@ -151,22 +257,46 @@ function buildDashboardConfig(env = process.env) {
       {
         id: "claude",
         label: "Claude Code",
-        tabTitle: "Claude",
-        description: "Persistent Claude Code CLI Route.",
+        tabTitle: "Claude Code",
+        description: "Persistent Claude Code CLI route.",
         path: claudeBaseUrl,
         enabled: envFlagEnabled(env.CLAUDE_ENABLED ?? "1"),
         help: toolHelp.claude,
       },
       {
         id: "gemini",
-        label: "Gemini",
-        tabTitle: "Gemini",
+        label: "Gemini CLI",
+        tabTitle: "Gemini CLI",
         description: "Persistent Gemini CLI route.",
         path: geminiBaseUrl,
         enabled: envFlagEnabled(env.GEMINI_ENABLED ?? "1"),
         help: toolHelp.gemini,
       },
+      {
+        id: "pi",
+        label: "Pi",
+        tabTitle: "Pi",
+        description: PI_DESCRIPTION,
+        path: piBaseUrl,
+        enabled: envFlagEnabled(env.PI_ENABLED ?? "1"),
+        help: toolHelp.pi,
+      },
     ],
+    preferences.toolOrder,
+  ).filter((tool) => tool.enabled);
+
+  return {
+    brandName: BRAND_NAME,
+    titleSuffix: TITLE_SUFFIX,
+    tenantLabel,
+    title: "Dashboard",
+    subtitle:
+      "Your Agent Farm control plane for OpenClaw, Hermes WebUI, Codex, Claude, Gemini, Pi, and the recovery tools that keep them healthy.",
+    dashboardBaseUrl,
+    apiBaseUrl,
+    openclawAccessMode,
+    preferences,
+    tools,
     utilities: [
       {
         id: "device-approvals",
@@ -253,6 +383,39 @@ function sendFile(response, filePath) {
   });
 }
 
+function readJsonBody(request, maxBytes = 16384) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let totalBytes = 0;
+
+    request.on("data", (chunk) => {
+      totalBytes += chunk.length;
+      if (totalBytes > maxBytes) {
+        reject(Object.assign(new Error("request body too large"), { statusCode: 413 }));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    request.on("end", () => {
+      const rawBody = Buffer.concat(chunks).toString("utf8").trim();
+      if (!rawBody) {
+        resolve({});
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(rawBody));
+      } catch {
+        reject(Object.assign(new Error("request body must be valid JSON"), { statusCode: 400 }));
+      }
+    });
+
+    request.on("error", reject);
+  });
+}
+
 function createServer(options = {}) {
   const env = options.env || process.env;
   const logger = options.logger || console;
@@ -274,6 +437,12 @@ function createServer(options = {}) {
       if (apiPath) {
         if (request.method === "GET" && apiPath === "/config") {
           return sendJson(response, 200, buildDashboardConfig(env));
+        }
+
+        if (request.method === "PUT" && apiPath === "/preferences") {
+          const payload = await readJsonBody(request);
+          const preferences = saveDashboardPreferences(payload, env);
+          return sendJson(response, 200, { preferences, config: buildDashboardConfig(env) });
         }
 
         if (request.method === "GET" && apiPath === "/utilities/device-approvals") {
@@ -345,12 +514,17 @@ if (require.main === module) {
 module.exports = {
   DEFAULT_API_BASE_URL,
   DEFAULT_DASHBOARD_BASE_URL,
+  DEFAULT_DASHBOARD_DATA_DIR,
   DEFAULT_DASHBOARD_PORT,
+  DEFAULT_TOOL_ORDER,
   buildDashboardConfig,
   contentTypeFor,
   createServer,
   listPendingApprovals,
   normalizeBaseUrl,
+  readDashboardPreferences,
+  saveDashboardPreferences,
   safeStaticPath,
+  sanitizeToolOrder,
   stripBasePath,
 };

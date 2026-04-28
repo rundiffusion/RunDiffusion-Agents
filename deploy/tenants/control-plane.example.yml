@@ -1,6 +1,6 @@
 tenants:
   dholbrook-5534:
-    openclawVersion: 2026.3.24
+    openclawVersion: 2026.4.15
     secrets:
       GEMINI_API_KEY: ""
       GEMINI_CLI_API_KEY: ""
@@ -8,6 +8,10 @@ tenants:
       CODEX_OPENAI_API_KEY: ""
       CLAUDE_ANTHROPIC_API_KEY: ""
       OPENROUTER_API_KEY: ""
+      PI_OPENAI_API_KEY: ""
+      PI_ANTHROPIC_API_KEY: ""
+      PI_GEMINI_API_KEY: ""
+      PI_OPENROUTER_API_KEY: ""
     models:
       allowed:
         - openai-codex/gpt-5.4
@@ -27,3 +31,5 @@ tenants:
     routes:
       gemini:
         enabled: false
+      pi:
+        enabled: true

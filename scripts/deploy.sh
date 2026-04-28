@@ -130,13 +130,18 @@ ensure_image_for_tenant() {
         build_cmd+=(--platform "${DOCKER_BUILD_PLATFORM}")
       fi
       "${build_cmd[@]}" \
+        --build-arg "NODE_IMAGE_REF=${NODE_IMAGE_REF}" \
+        --build-arg "FILEBROWSER_IMAGE_REF=${FILEBROWSER_IMAGE_REF}" \
         --build-arg "OPENCLAW_VERSION=${target_openclaw_version}" \
         --build-arg "OPENCLAW_SOURCE_TAG=${openclaw_source_tag}" \
         --build-arg "CODEX_CLI_VERSION=${CODEX_CLI_VERSION}" \
         --build-arg "CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION}" \
         --build-arg "GEMINI_CLI_VERSION=${GEMINI_CLI_VERSION}" \
+        --build-arg "PI_CODING_AGENT_VERSION=${PI_CODING_AGENT_VERSION}" \
         --build-arg "HOMEBREW_INSTALL_REF=${HOMEBREW_INSTALL_REF}" \
         --build-arg "HOMEBREW_BREW_REF=${HOMEBREW_BREW_REF}" \
+        --build-arg "HERMES_REF=${HERMES_REF}" \
+        --build-arg "HERMES_WEBUI_REF=${HERMES_WEBUI_REF}" \
         -t "${image_ref}" \
         -f "${REPO_ROOT}/services/rundiffusion-agents/Dockerfile" \
         "${REPO_ROOT}/services/rundiffusion-agents"

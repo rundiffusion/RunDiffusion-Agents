@@ -77,7 +77,7 @@ This deployment has three host-side config layers:
 | --- | --- | --- |
 | **Root `.env`** | `.env.example` | Shared host settings: `DATA_ROOT`, `TENANT_ENV_ROOT`, `TRAEFIK_*`, `IMAGE_REPOSITORY`, release behavior |
 | **Control-plane YAML** (optional) | Host-only file outside git | Tenant-scoped managed overrides: `openclawVersion`, provider keys, startup model state, route flags |
-| **Tenant env file** | `${TENANT_ENV_ROOT}/<slug>.env` | Tenant-specific auth, enable flags, provider credentials: `OPENCLAW_GATEWAY_TOKEN`, `TERMINAL_BASIC_AUTH_*`, `GEMINI_API_KEY` |
+| **Tenant env file** | `${TENANT_ENV_ROOT}/<slug>.env` | Tenant-specific auth, enable flags, provider credentials: `OPENCLAW_GATEWAY_TOKEN`, `TERMINAL_BASIC_AUTH_*`, `GEMINI_API_KEY`, `PI_*` keys |
 
 Important:
 

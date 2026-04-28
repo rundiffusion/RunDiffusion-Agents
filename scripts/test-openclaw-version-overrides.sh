@@ -46,7 +46,7 @@ DATA_ROOT=${tmpdir}/data
 TENANT_ENV_ROOT=${tmpdir}/env
 TENANT_CONTROL_PLANE_CONFIG_PATH=${tmpdir}/control-plane.yml
 IMAGE_REPOSITORY=local/openclaw-gateway
-OPENCLAW_VERSION=2026.3.22
+OPENCLAW_VERSION=2026.4.15
 DEPLOY_MODE=build
 EOF
 
@@ -64,7 +64,7 @@ EOF
 cat > "${tmpdir}/control-plane.yml" <<'EOF'
 tenants:
   alpha:
-    openclawVersion: 2026.3.24
+    openclawVersion: 2026.4.16
 EOF
 
 mkdir -p "${tmpdir}/env"
@@ -76,13 +76,13 @@ EOF
 
 load_root_env
 
-assert_eq "$(resolved_openclaw_version alpha)" "2026.3.24" "tenant override wins over root env"
+assert_eq "$(resolved_openclaw_version alpha)" "2026.4.16" "tenant override wins over root env"
 assert_eq "$(resolved_openclaw_version_source alpha)" "tenant_control_plane" "tenant override source"
-assert_eq "$(resolved_openclaw_version beta)" "2026.3.22" "root env is default without tenant override"
+assert_eq "$(resolved_openclaw_version beta)" "2026.4.15" "root env is default without tenant override"
 assert_eq "$(resolved_openclaw_version_source beta)" "root_env" "root env source"
 
-export OPENCLAW_VERSION_OVERRIDE="2026.3.30"
-assert_eq "$(resolved_openclaw_version alpha)" "2026.3.30" "cli override wins over tenant override"
+export OPENCLAW_VERSION_OVERRIDE="2026.4.17"
+assert_eq "$(resolved_openclaw_version alpha)" "2026.4.17" "cli override wins over tenant override"
 assert_eq "$(resolved_openclaw_version_source alpha)" "cli_override" "cli override source"
 unset OPENCLAW_VERSION_OVERRIDE
 
@@ -124,7 +124,7 @@ DATA_ROOT=${tmpdir}/data
 TENANT_ENV_ROOT=${runtime_repo}/env
 TENANT_CONTROL_PLANE_CONFIG_PATH=${tmpdir}/control-plane.yml
 IMAGE_REPOSITORY=local/openclaw-gateway
-OPENCLAW_VERSION=2026.3.22
+OPENCLAW_VERSION=2026.4.15
 TRAEFIK_NETWORK=test-network
 TENANT_MEMORY_RESERVATION=1536m
 TENANT_MEMORY_LIMIT=3072m
@@ -151,9 +151,9 @@ runtime_output="$(
     alpha \
     --repo-root "${runtime_repo}"
 )"
-assert_contains "${runtime_output}" "ROOT_OPENCLAW_VERSION=2026.3.22" "runtime context root version"
-assert_contains "${runtime_output}" "TENANT_OPENCLAW_VERSION_OVERRIDE=2026.3.24" "runtime context tenant override"
-assert_contains "${runtime_output}" "EFFECTIVE_OPENCLAW_VERSION=2026.3.24" "runtime context effective version"
+assert_contains "${runtime_output}" "ROOT_OPENCLAW_VERSION=2026.4.15" "runtime context root version"
+assert_contains "${runtime_output}" "TENANT_OPENCLAW_VERSION_OVERRIDE=2026.4.16" "runtime context tenant override"
+assert_contains "${runtime_output}" "EFFECTIVE_OPENCLAW_VERSION=2026.4.16" "runtime context effective version"
 assert_contains "${runtime_output}" "EFFECTIVE_OPENCLAW_VERSION_SOURCE=tenant_control_plane" "runtime context effective source"
 
 printf 'PASS: openclaw version override checks\n'
